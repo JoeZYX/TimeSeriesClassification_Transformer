@@ -235,8 +235,8 @@ class Exp(object):
             loss = criterion(pred, true) 
 
             total_loss.append(loss)
-            preds.extend(list(np.argmax(outputs.detach().numpy(),axis=1)))
-            trues.extend(list(batch_y.detach().numpy()))            
+            preds.extend(list(np.argmax(outputs.detach().cpu().numpy(),axis=1)))
+            trues.extend(list(batch_y.detach().cpu().numpy()))            
         total_loss = np.average(total_loss)
         acc = accuracy_score(preds,trues)
         self.model.train()
