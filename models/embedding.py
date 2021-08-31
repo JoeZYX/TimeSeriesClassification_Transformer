@@ -7,7 +7,14 @@ import matplotlib.pylab as plt
 import numpy as np
 
 # TODO 所有循环结构应该呈现灵活性，每一层都不能一样！
-activation_dict = {"relu"   : nn.ReLU}
+activation_dict = {"relu"         : nn.ReLU,
+                   "leakyrelu"    : nn.LeakyReLU,
+                   "prelu"        : nn.PReLU,
+                   "rrelu"        : nn.RReLU,
+                   "elu"          : nn.ELU,
+                   "gelu"         : nn.GELU,
+                   "hardswish"    : nn.Hardswish,
+                   "mish"         : nn.Mish}
 
 class TokenEmbedding(nn.Module):
     def __init__(self,

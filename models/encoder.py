@@ -5,9 +5,15 @@ import torch.nn.functional as F
 Norm_dict = {"layer" : nn.LayerNorm,
              "batch" : nn.BatchNorm1d}
 
-Activation_dict = {"gelu" : F.gelu,
-                   "relu" : F.relu}
 
+Activation_dict = {"relu"         : nn.ReLU,
+                   "leakyrelu"    : nn.LeakyReLU,
+                   "prelu"        : nn.PReLU,
+                   "rrelu"        : nn.RReLU,
+                   "elu"          : nn.ELU,
+                   "gelu"         : nn.GELU,
+                   "hardswish"    : nn.Hardswish,
+                   "mish"         : nn.Mish}
 class EncoderLayer(nn.Module):
 
 
