@@ -123,25 +123,37 @@ class AttentionLayer(nn.Module):
         self.projection_dropout = projection_dropout
 
         # 初始化4个projection，分别时key，query， value以及最后新value的out的projection
-        self.query_projection = nn.Conv1d(in_channels = d_model,
+        self.query_projection = nn.Conv1d(in_channels  = d_model,
                                           out_channels = self.d_keys*self.n_heads, 
-                                          kernel_size  = self.causal_kernel_size)
+                                          kernel_size  = self.causal_kernel_size,
+                                          padding      =  int(self.causal_kernel_size/2),
+                                          bias         =  False,  
+                                          padding_mode = "replicate")
 
 
-        self.key_projection = nn.Conv1d(in_channels = d_model,
+        self.key_projection = nn.Conv1d(in_channels  = d_model,
                                         out_channels = self.d_keys*self.n_heads, 
-                                        kernel_size  = self.causal_kernel_size)
+                                        kernel_size  = self.causal_kernel_size,
+                                        padding      =  int(self.causal_kernel_size/2),
+                                        bias         =  False,  
+                                        padding_mode = "replicate")
 
 
-        self.value_projection = nn.Conv1d(in_channels= d_model,
-                                          out_channels=self.d_values * self.n_heads, 
-                                          kernel_size = self.value_kernel_size) 
+        self.value_projection = nn.Conv1d(in_channels  = d_model,
+                                          out_channels = self.d_values * self.n_heads, 
+                                          kernel_size  = self.value_kernel_size,
+                                          padding      =  int(self.value_kernel_size/2),
+                                          bias         =  False,  
+                                          padding_mode = "replicate")
 										  
         self.inner_attention = attention
 
         self.out_projection = nn.Conv1d(in_channels=self.d_values * self.n_heads,                    # 与前三个projection的输入维度不一样，因为这里的输入时attention后的新value
                                         out_channels=d_model,                                        # 由于有skip的机制，所以整个attention的输入和输出要保持一直
-                                        kernel_size = self.value_kernel_size)                       
+                                        kernel_size = self.value_kernel_size,
+                                        padding      =  int(self.value_kernel_size/2),
+                                        bias         =  False,  
+                                        padding_mode = "replicate")
         self.proj_drop = nn.Dropout(projection_dropout)
 
 
@@ -154,27 +166,30 @@ class AttentionLayer(nn.Module):
 
         # # 以上 B L C 中的C是包含了所有Head的特征，映射之后拆分为，每个head的特征，也就是， [B, L, H, C] 
         #  ========================== value projection ==========================
-        value_padding_size   = int(self.value_kernel_size/2)
-        paddding_values      = nn.functional.pad(values.permute(0, 2, 1), 
-                                                 pad=(value_padding_size, value_padding_size),
-                                                 mode='replicate')
-        values               = self.value_projection(paddding_values).permute(0, 2, 1)  # B L C
+        #value_padding_size   = int(self.value_kernel_size/2)
+        #paddding_values      = nn.functional.pad(values.permute(0, 2, 1), 
+        #                                         pad=(value_padding_size, value_padding_size),
+        #                                         mode='replicate')
+        #values               = self.value_projection(paddding_values).permute(0, 2, 1)  # B L C
+        values               = self.value_projection(values.permute(0, 2, 1)).permute(0, 2, 1)
         values               = values.view(B, L_V, H, -1)
 
         # ========================== query  keys projection ==========================
-        queries_padding_size = int(self.causal_kernel_size/2)
+        #queries_padding_size = int(self.causal_kernel_size/2)
 
-        paddding_queries     = nn.functional.pad(queries.permute(0, 2, 1), 
-                                                 pad=(queries_padding_size, queries_padding_size),
-                                                 mode='replicate')
-        queries              = self.query_projection(paddding_queries).permute(0, 2, 1) # B L C
+        #paddding_queries     = nn.functional.pad(queries.permute(0, 2, 1), 
+        #                                         pad=(queries_padding_size, queries_padding_size),
+        #                                         mode='replicate')
+        #queries              = self.query_projection(paddding_queries).permute(0, 2, 1) # B L C
+        queries              = self.query_projection(queries.permute(0, 2, 1)).permute(0, 2, 1)
         queries              = queries.view(B, L_Q, H, -1)
 
      
-        paddding_keys        = nn.functional.pad(keys.permute(0, 2, 1), 
-                                                 pad=(queries_padding_size, queries_padding_size),
-                                                 mode='replicate')
-        keys                 = self.key_projection(paddding_keys).permute(0, 2, 1) # B L C  
+        #paddding_keys        = nn.functional.pad(keys.permute(0, 2, 1), 
+        #                                         pad=(queries_padding_size, queries_padding_size),
+        #                                         mode='replicate')
+        #keys                 = self.key_projection(paddding_keys).permute(0, 2, 1) # B L C  
+        keys                 = self.key_projection(keys.permute(0, 2, 1)).permute(0, 2, 1)
         keys                 = keys.view(B, L_K, H, -1)   
 
 
@@ -187,11 +202,11 @@ class AttentionLayer(nn.Module):
         out = out.view(B, L_V, -1)                                                                 # TODO L_V?                                                 
 
         # ========================== Out Projection ==========================
-        paddding_out        = nn.functional.pad(out.permute(0, 2, 1), 
-                                                pad=(value_padding_size, value_padding_size),
-                                                mode='replicate')
-        out                 = self.out_projection(paddding_out).permute(0, 2, 1)
-
+        #paddding_out        = nn.functional.pad(out.permute(0, 2, 1), 
+        #                                        pad=(value_padding_size, value_padding_size),
+        #                                        mode='replicate')
+        #out                 = self.out_projection(paddding_out).permute(0, 2, 1)
+        out                 = self.out_projection(out.permute(0, 2, 1)).permute(0, 2, 1)
 			
         out                 = self.proj_drop(out)
         return out, attn
