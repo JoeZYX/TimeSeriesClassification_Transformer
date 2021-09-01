@@ -47,7 +47,7 @@ class EncoderLayer(nn.Module):
                                    bias         =  False,  
                                    padding_mode = "replicate")
 								   
-        self.ffd_activation = Activation_dict[activation]
+        self.ffd_activation = Activation_dict[activation]()
         self.ffd_dropout1 = nn.Dropout(feedforward_dropout)
 
         self.ffd_conv2 = nn.Conv1d(in_channels   = self.dim_feedforward,
@@ -119,7 +119,7 @@ class ConvLayer(nn.Module):
         self.normConv = Norm_dict[conv_norm](c_out)
 
 
-        self.conv_activation = Activation_dict[conv_activation]
+        self.conv_activation = Activation_dict[conv_activation]()
 
         self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
 
