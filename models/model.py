@@ -88,7 +88,7 @@ class TSCtransformer(nn.Module):
                                    padding        = 1,
                                    bias=True)
         if args.distil:
-            final_length = int(args.input_length/(2*(args.e_layers-1)))
+            final_length = int(args.input_length/(2**(args.e_layers-1)))
             print(final_length)
         else:
             final_length = args.input_length
@@ -108,7 +108,7 @@ class TSCtransformer(nn.Module):
         #x = torch.matmul(F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x).squeeze(-2)
         #x = self.classes_prediction(x)
 
-        print(x.shape)
+        #print(x.shape)
 
         # Variante 2 --------------
         x = self.donwconv(x.permute(0, 2, 1)).permute(0, 2, 1).squeeze()
