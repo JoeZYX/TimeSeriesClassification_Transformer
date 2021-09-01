@@ -56,9 +56,9 @@ class UCI_HAR_DATA(Dataset):
             print("The channel_in is : ", self.channel_in)
     def load_the_data(self, root_path, normalizer, difference):
 
-        with open(root_path+"train_df_list.pickle", 'rb') as handle:
+        with open(root_path+"original_train_df_list.pickle", 'rb') as handle:
             train_list= pickle.load(handle)
-        with open(root_path+"test_df_list.pickle", 'rb') as handle:
+        with open(root_path+"original_test_df_list.pickle", 'rb') as handle:
             test_list= pickle.load(handle)    
 
 
