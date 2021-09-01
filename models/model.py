@@ -89,6 +89,7 @@ class TSCtransformer(nn.Module):
                                    bias=True)
         if args.distil:
             final_length = int(args.input_length/(2*(args.e_layers-1)))
+            print(final_length)
         else:
             final_length = args.input_length
             print(final_length)
