@@ -6,12 +6,12 @@ from torch import optim
 import os
 import numpy as np
 import time
-from models.dataloader import UCR_TSC_DATA_UNIVARIATE
+from models.dataloader import data_loader_dict
 from models.model import TSCtransformer
 from sklearn.metrics import accuracy_score
 
 
-Data_Loader_Dict = {"ucr_univariante" : UCR_TSC_DATA_UNIVARIATE}
+#Data_Loader_Dict = {"ucr_univariante" : UCR_TSC_DATA_UNIVARIATE}
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
@@ -143,7 +143,7 @@ class Exp(object):
         else:
             shuffle_flag = False
 
-        data_set = Data_Loader_Dict[self.args.dataloader]( args = self.args, flag = flag )
+        data_set = data_loader_dict[self.args.data_loader]( args = self.args, flag = flag )
         data_loader = DataLoader(data_set, 
                                  batch_size   =  self.args.batch_size,
                                  shuffle      =  shuffle_flag,
