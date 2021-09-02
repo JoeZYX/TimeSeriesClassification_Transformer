@@ -29,11 +29,11 @@ class TSCtransformer(nn.Module):
                                                   pooling_kernel_size  = args.token_pool_kernel_size, 
                                                   pooling_stride       = args.token_pool_stride,
                                                   pooling_padding      = args.token_pool_pad)
-
+            print("debug 2")
 
             sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
                                                                    n_channels   =  args.c_in)
-            print("debug 2")
+            print("debug 3")
         else:
             self.value_embedding = None
             sequence_length = args.input_length
