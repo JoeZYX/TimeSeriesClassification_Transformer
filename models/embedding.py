@@ -114,12 +114,12 @@ class TokenEmbedding(nn.Module):
                                                   pooling_kernel_size = pooling_kernel_size, 
                                                   pooling_stride      = pooling_stride,
                                                   pooling_padding     = pooling_padding))
-            print(debug)
+            print("debug")
         self.conv_layers = nn.ModuleList(self.conv_layers)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
+        #for m in self.modules():
+        #    if isinstance(m, nn.Conv1d):
+        #        nn.init.kaiming_normal_(m.weight)
 
 
 
