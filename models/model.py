@@ -13,7 +13,7 @@ class TSCtransformer(nn.Module):
         super(TSCtransformer, self).__init__()
         # all parameters are saved in self.args
         self.args = args
-
+        print("beginn to build model")
         # ================================ Embedding part ================================
         if self.args.token_n_layers > 0:
             self.value_embedding = TokenEmbedding(c_in                 = args.c_in, 
