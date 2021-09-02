@@ -33,6 +33,7 @@ class TSCtransformer(nn.Module):
 
             sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
                                                                    n_channels   =  args.c_in)
+            print("debug 2")
         else:
             self.value_embedding = None
             sequence_length = args.input_length
