@@ -47,7 +47,8 @@ class TSCtransformer(nn.Module):
         else:
             self.pos_embedding = None
 
-        self.input_embedding_dropout = nn.Dropout(p = args.input_embedding_dropout)
+        self.input_embedding_dropout = nn.Dropout(p = args.input_embedding_dropout) 
+        print("build embedding")
         # ================================ Encoding part ================================
 
         self.encoder = Encoder([EncoderLayer(AttentionLayer(attention          = MaskAttention(mask_flag          = args.mask_flag, 
@@ -75,7 +76,7 @@ class TSCtransformer(nn.Module):
                                            conv_norm       = args.conv_norm, 
                                            conv_activation = args.conv_activation ) for l in range(args.e_layers-1)] if args.distil else None
                                )
-
+        print("build encoder")
         # ================================ Prediction part ================================
         # Variante 1 --------------
         self.attention_pool = nn.Linear(args.token_d_model, 1)
@@ -96,7 +97,7 @@ class TSCtransformer(nn.Module):
         #    final_length = args.input_length
         #    print(final_length)
         #self.classes_prediction = nn.Linear(in_features=final_length, out_features=args.num_classes)
-
+        print("build prediction")
 
 
     def forward(self, x):
