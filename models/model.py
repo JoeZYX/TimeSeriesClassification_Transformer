@@ -22,7 +22,7 @@ class TSCtransformer(nn.Module):
                                                   stride               = args.token_stride, 
                                                   conv_bias            = args.token_conv_bias,
                                                   activation           = args.token_activation,
-                                                  norm                 = args.token_norm,
+                                                  norm_type            = args.token_norm,
                                                   n_conv_layers        = args.token_n_layers,
                                                   in_planes            = args.token_in_planes,
                                                   max_pool             = args.token_max_pool,
