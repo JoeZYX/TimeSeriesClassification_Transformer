@@ -48,11 +48,14 @@ class Forward_block(nn.Module):
                                            stride      = pooling_stride,
                                            padding     = pooling_padding)
     def forward(self, x):
+        print("2")
         x  = self.conv(x.permute(0, 2, 1)).permute(0, 2, 1)
+        print("3")
         if self.norm_type == "layer":
             x = self.activation(self.norm(x))
         else :
             x = self.activation(self.norm(x.permute(0, 2, 1)).permute(0, 2, 1))
+        print("4")
         if self.max_pool:
             x = self.maxpooling(x.permute(0, 2, 1)).permute(0, 2, 1)
         return x
@@ -126,6 +129,7 @@ class TokenEmbedding(nn.Module):
     def forward(self, x):
 
         #x = self.conv_layers(x.permute(0, 2, 1)).transpose(1,2)
+        print("1")
         x = self.conv_layers(x)
         return x
 
