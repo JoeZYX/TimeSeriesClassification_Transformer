@@ -15,6 +15,47 @@ activation_dict = {"relu"         : nn.ReLU,
                    "gelu"         : nn.GELU,
                    "hardswish"    : nn.Hardswish,
                    "mish"         : nn.Mish}
+Norm_dict = {"layer" : nn.LayerNorm,
+             "batch" : nn.BatchNorm1d}
+
+class Forward_block(nn.Module):
+    def __init__(self,
+                 c_in,
+                 c_out,
+                 kernel_size,
+                 stride = 1, 
+                 conv_bias=False,
+                 activation="relu",
+                 norm_type = "batch",
+                 max_pool=False,
+                 pooling_kernel_size=3, 
+                 pooling_stride=2,
+                 pooling_padding=1):
+        super(Forward_block, self).__init__() 
+        self.conv = nn.Conv1d(in_channels  =  c_in, 
+                              out_channels =  c_out,
+                              kernel_size  =  kernel_size,
+                              padding      =  int(kernel_size/2),
+                              stride       =  stride,
+                              bias         =  conv_bias,
+                              padding_mode = 'replicate')
+        self.norm_type   = norm_type
+        self.norm        = Norm_dict[norm_type](c_out)
+        self.activation  = activation_dict[activation]()
+        self.max_pool    = max_pool
+        if max_pool:
+           self.maxpooling =  nn.MaxPool1d(kernel_size = pooling_kernel_size,
+                                           stride      = pooling_stride,
+                                           padding     = pooling_padding)
+    def forward(self, x):
+        x  = self.conv(x.permute(0, 2, 1)).permute(0, 2, 1)
+        if self.norm_type == "layer":
+            x = self.activation(self.norm(x))
+        else :
+            x = self.activation(self.norm(x.permute(0, 2, 1)).permute(0, 2, 1))
+        if self.max_pool:
+            x = self.maxpooling(x.permute(0, 2, 1)).permute(0, 2, 1)
+        return x
 
 class TokenEmbedding(nn.Module):
     def __init__(self,
@@ -24,7 +65,7 @@ class TokenEmbedding(nn.Module):
                  stride = 1, 
                  conv_bias=False,
                  activation="relu",
-                 norm = "batch",
+                 norm_type = "batch",
                  n_conv_layers=1,
                  in_planes=None,
                  max_pool=False,
@@ -42,23 +83,38 @@ class TokenEmbedding(nn.Module):
         n_filter_list = [c_in] + [in_planes for _ in range(n_conv_layers - 1)] + [token_d_model]
         padding = int(kernel_size/2)
 
-        self.conv_layers = nn.Sequential(
-            *[nn.Sequential(
-                nn.Conv1d(in_channels  =  n_filter_list[i], 
-                          out_channels =  n_filter_list[i + 1],
-                          kernel_size  =  kernel_size,
-                          padding      =  padding,
-                          stride       =  stride,
-                          bias         =  conv_bias,#),
-                          padding_mode = 'replicate'),
-                nn.Identity() if norm is None else nn.BatchNorm1d(n_filter_list[i + 1]),
-                nn.Identity() if activation is None else activation_dict[activation](),
-                nn.MaxPool1d(kernel_size = pooling_kernel_size,
-                             stride      = pooling_stride,
-                             padding     = pooling_padding) if max_pool else nn.Identity()
-            )
-                for i in range(n_conv_layers)
-            ])
+        #self.conv_layers = nn.Sequential(
+        #    *[nn.Sequential(
+        #        nn.Conv1d(in_channels  =  n_filter_list[i], 
+        #                  out_channels =  n_filter_list[i + 1],
+        #                  kernel_size  =  kernel_size,
+        #                  padding      =  padding,
+        #                  stride       =  stride,
+        #                  bias         =  conv_bias,#),
+        #                  padding_mode = 'replicate'),
+        #        nn.Identity() if norm_type is None else nn.BatchNorm1d(n_filter_list[i + 1]),
+        #        nn.Identity() if activation is None else activation_dict[activation](),
+        #        nn.MaxPool1d(kernel_size = pooling_kernel_size,
+        #                     stride      = pooling_stride,
+        #                     padding     = pooling_padding) if max_pool else nn.Identity()
+        #    )
+        #        for i in range(n_conv_layers)
+        #    ])
+
+        self.conv_layers = []
+        for i in range(n_conv_layers):
+            self.conv_layers.append(Forward_block(c_in                = n_filter_list[i],
+                                                  c_out               = n_filter_list[i + 1], 
+                                                  kernel_size         = kernel_size,
+                                                  stride              = stride, 
+                                                  conv_bias           = conv_bias,
+                                                  activation          = activation,
+                                                  norm_type           = norm_type,
+                                                  max_pool            = max_pool,
+                                                  pooling_kernel_size = pooling_kernel_size, 
+                                                  pooling_stride      = pooling_stride,
+                                                  pooling_padding     = pooling_padding))
+        self.conv_layers = nn.ModuleList(self.conv_layers)
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
@@ -68,7 +124,8 @@ class TokenEmbedding(nn.Module):
 
     def forward(self, x):
 
-        x = self.conv_layers(x.permute(0, 2, 1)).transpose(1,2)
+        #x = self.conv_layers(x.permute(0, 2, 1)).transpose(1,2)
+        x = self.conv_layers(x)
         return x
 
     def sequence_length(self, length=100, n_channels=3):

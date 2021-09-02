@@ -15,7 +15,7 @@ class TSCtransformer(nn.Module):
         self.args = args
 
         # ================================ Embedding part ================================
-        if self.args.token_d_model is not None:
+        if self.args.token_n_layers > 0:
             self.value_embedding = TokenEmbedding(c_in                 = args.c_in, 
                                                   token_d_model        = args.token_d_model,
                                                   kernel_size          = args.token_kernel_size, 
@@ -33,7 +33,9 @@ class TSCtransformer(nn.Module):
 
             sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
                                                                    n_channels   =  args.c_in)
-
+        else:
+            self.value_embedding = None
+            sequence_length = args.input_length
 
 
         if args.positional_embedding != 'none':
@@ -76,43 +78,44 @@ class TSCtransformer(nn.Module):
 
         # ================================ Prediction part ================================
         # Variante 1 --------------
-        #self.attention_pool = nn.Linear(args.token_d_model, 1)
-        #self.classes_prediction = nn.Linear(args.token_d_model, args.num_classes)
+        self.attention_pool = nn.Linear(args.token_d_model, 1)
+        self.classes_prediction = nn.Linear(args.token_d_model, args.num_classes)
 
 
         # Variante 2 --------------
-        self.donwconv = nn.Conv1d( in_channels    = args.token_d_model,  
-                                   out_channels   = 1, 
-                                   kernel_size    = 3, 
-                                   stride         = 1,
-                                   padding        = 1,
-                                   bias=True)
-        if args.distil:
-            final_length = int(args.input_length/(2**(args.e_layers-1)))
-            print(final_length)
-        else:
-            final_length = args.input_length
-            print(final_length)
-        self.classes_prediction = nn.Linear(in_features=final_length, out_features=args.num_classes)
+        #self.donwconv = nn.Conv1d( in_channels    = args.token_d_model,  
+        #                           out_channels   = 1, 
+        #                           kernel_size    = 3, 
+        #                           stride         = 1,
+        #                           padding        = 1,
+        #                           bias=True)
+        #if args.distil:
+        #    final_length = int(args.input_length/(2**(args.e_layers-1)))
+        #    print(final_length)
+        #else:
+        #    final_length = args.input_length
+        #    print(final_length)
+        #self.classes_prediction = nn.Linear(in_features=final_length, out_features=args.num_classes)
 
 
 
-    def forward(self, x): 
-        x = self.value_embedding(x)
+    def forward(self, x):
+        if self.value_embedding is not None:
+            x = self.value_embedding(x)
         if self.pos_embedding is not None:
             x += self.pos_embedding
         x = self.input_embedding_dropout(x)
 
         x, attns = self.encoder(x)
         # Variante 1 --------------
-        #x = torch.matmul(F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x).squeeze(-2)
-        #x = self.classes_prediction(x)
+        x = torch.matmul(F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x).squeeze(-2)
+        x = self.classes_prediction(x)
 
         #print(x.shape)
 
         # Variante 2 --------------
-        x = self.donwconv(x.permute(0, 2, 1)).permute(0, 2, 1).squeeze()
-        x = self.classes_prediction(x)
+        #x = self.donwconv(x.permute(0, 2, 1)).permute(0, 2, 1).squeeze()
+        #x = self.classes_prediction(x)
 
 
 
