@@ -23,14 +23,15 @@ class Forward_block(nn.Module):
                  c_in,
                  c_out,
                  kernel_size,
-                 stride = 1, 
-                 conv_bias=False,
-                 activation="relu",
-                 norm_type = "batch",
-                 max_pool=False,
-                 pooling_kernel_size=3, 
-                 pooling_stride=2,
-                 pooling_padding=1):
+                 stride                 =  1, 
+                 conv_bias              = False,
+                 activation             = "relu",
+                 norm_type              = "batch",
+                 max_pool               = False,
+                 pooling_kernel_size    = 3, 
+                 pooling_stride         = 2,
+                 pooling_padding        = 1,
+                 padding_mode           = 'replicate'):
         """
         embedding的block 由 conv --> norm --> activation --> maxpooling组成
         """
@@ -41,7 +42,7 @@ class Forward_block(nn.Module):
                               padding      =  int(kernel_size/2),
                               stride       =  stride,
                               bias         =  conv_bias,
-                              padding_mode = 'replicate')
+                              padding_mode =  padding_mode)
         self.norm_type   = norm_type
         self.norm        = Norm_dict[norm_type](c_out)
         self.activation  = activation_dict[activation]()
@@ -67,17 +68,18 @@ class TokenEmbedding(nn.Module):
     def __init__(self,
                  c_in, 
                  token_d_model,
-                 kernel_size = 3, 
-                 stride = 1, 
-                 conv_bias=False,
-                 activation="relu",
-                 norm_type = "batch",
-                 n_conv_layers=1,
-                 in_planes=None,
-                 max_pool=False,
-                 pooling_kernel_size=3, 
-                 pooling_stride=2,
-                 pooling_padding=1):
+                 kernel_size            = 3, 
+                 stride                 = 1, 
+                 conv_bias              = False,
+                 activation             = "relu",
+                 norm_type              = "batch",
+                 n_conv_layers          = 1,
+                 in_planes              = None,
+                 max_pool               = False,
+                 pooling_kernel_size    = 3, 
+                 pooling_stride         = 2,
+                 pooling_padding        = 1,
+                 padding_mode           = 'replicate'):
         """
         c_in  : 模型输入的维度
         token_d_model ： embedding的维度  TODO看看后面是需要被相加还是被cat
@@ -102,7 +104,8 @@ class TokenEmbedding(nn.Module):
                                                   max_pool            = max_pool,
                                                   pooling_kernel_size = pooling_kernel_size, 
                                                   pooling_stride      = pooling_stride,
-                                                  pooling_padding     = pooling_padding))
+                                                  pooling_padding     = pooling_padding,
+                                                  padding_mode        = padding_mode))
 
         self.conv_layers = nn.ModuleList(self.conv_layers)
 

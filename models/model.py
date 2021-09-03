@@ -28,7 +28,8 @@ class TSCtransformer(nn.Module):
                                                   max_pool             = args.token_max_pool,
                                                   pooling_kernel_size  = args.token_pool_kernel_size, 
                                                   pooling_stride       = args.token_pool_stride,
-                                                  pooling_padding      = args.token_pool_pad)
+                                                  pooling_padding      = args.token_pool_pad,
+                                                  padding_mode         = args.padding_mode)
 
 
             sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
@@ -64,6 +65,7 @@ class TSCtransformer(nn.Module):
                                                             causal_kernel_size = args.causal_kernel_size, 
                                                             value_kernel_size  = args.value_kernel_size,
                                                             bias               = args.bias,
+                                                            padding_mode       = args.padding_mode,
                                                             projection_dropout = args.projection_dropout),
 
                                              d_model             = args.token_d_model,
@@ -72,11 +74,13 @@ class TSCtransformer(nn.Module):
                                              activation          = args.feedforward_activation,
                                              norm_type           = args.feedforward_norm_type,
                                              forward_kernel_size = args.forward_kernel_size,
-                                             bias                = args.bias) for l in range(args.e_layers)],
+                                             bias                = args.bias,
+                                             padding_mode        = args.padding_mode) for l in range(args.e_layers)],
 
                                [ConvLayer( c_in            = args.token_d_model, 
                                            c_out           = args.token_d_model,
                                            bias            = args.bias,
+                                           padding_mode    = args.padding_mode,
                                            conv_norm       = args.conv_norm, 
                                            conv_activation = args.conv_activation ) for l in range(args.e_layers-1)] if args.distil else None
                                )
@@ -86,12 +90,7 @@ class TSCtransformer(nn.Module):
         self.attention_pool = nn.Linear(args.token_d_model, 1)
         self.classes_prediction = nn.Linear(args.token_d_model, args.num_classes)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
+
         # Variante 2 --------------
         #self.donwconv = nn.Conv1d( in_channels    = args.token_d_model,  
         #                           out_channels   = 1, 
@@ -106,7 +105,13 @@ class TSCtransformer(nn.Module):
         #    final_length = args.input_length
         #    print(final_length)
         #self.classes_prediction = nn.Linear(in_features=final_length, out_features=args.num_classes)
-        print("build prediction")
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+		print("build prediction")
 
 
     def forward(self, x):

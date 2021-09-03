@@ -98,6 +98,7 @@ class AttentionLayer(nn.Module):
                  causal_kernel_size   =  3, 
                  value_kernel_size    =  1,
                  bias                 = False,
+                 padding_mode         = 'replicate',
                  projection_dropout   =  0.1):
         """
 
@@ -129,7 +130,7 @@ class AttentionLayer(nn.Module):
                                           kernel_size  = self.causal_kernel_size,
                                           padding      =  int(self.causal_kernel_size/2),
                                           bias         =  bias,  
-                                          padding_mode = "replicate")
+                                          padding_mode = padding_mode)
 
 
         self.key_projection = nn.Conv1d(in_channels  = d_model,
@@ -137,7 +138,7 @@ class AttentionLayer(nn.Module):
                                         kernel_size  = self.causal_kernel_size,
                                         padding      =  int(self.causal_kernel_size/2),
                                         bias         =  bias,  
-                                        padding_mode = "replicate")
+                                        padding_mode = padding_mode)
 
 
         self.value_projection = nn.Conv1d(in_channels  = d_model,
@@ -145,7 +146,7 @@ class AttentionLayer(nn.Module):
                                           kernel_size  = self.value_kernel_size,
                                           padding      =  int(self.value_kernel_size/2),
                                           bias         =  bias,  
-                                          padding_mode = "replicate")
+                                          padding_mode = padding_mode)
 										  
         self.inner_attention = attention
 
@@ -154,7 +155,7 @@ class AttentionLayer(nn.Module):
                                         kernel_size = self.value_kernel_size,
                                         padding      =  int(self.value_kernel_size/2),
                                         bias         =  bias,  
-                                        padding_mode = "replicate")
+                                        padding_mode = padding_mode)
         self.proj_drop = nn.Dropout(projection_dropout)
 
         for m in self.modules():

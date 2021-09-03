@@ -25,7 +25,8 @@ class EncoderLayer(nn.Module):
                  activation            = "gelu",
                  norm_type             = "layer",
                  forward_kernel_size   = 1,
-                 bias                  = False):
+                 bias                  = False,
+                 padding_mode          = "replicate"):
 
         super(EncoderLayer, self).__init__()
 		
@@ -46,7 +47,7 @@ class EncoderLayer(nn.Module):
                                    kernel_size  = self.forward_kernel_size,
                                    padding      =  int(self.forward_kernel_size/2),
                                    bias         =  bias,  
-                                   padding_mode = "replicate")
+                                   padding_mode = padding_mode)
 								   
         self.ffd_activation = Activation_dict[activation]()
         #self.ffd_dropout1 = nn.Dropout(feedforward_dropout)
@@ -54,9 +55,9 @@ class EncoderLayer(nn.Module):
         self.ffd_conv2 = nn.Conv1d(in_channels   = self.dim_feedforward,
                                    out_channels  = d_model, 
                                    kernel_size   = self.forward_kernel_size,
-                                   padding      =  int(self.forward_kernel_size/2),
-                                   bias         =  bias,  
-                                   padding_mode = "replicate")
+                                   padding       =  int(self.forward_kernel_size/2),
+                                   bias          =  bias,  
+                                   padding_mode  = padding_mode)
 
         self.ffd_dropout2 = nn.Dropout(feedforward_dropout)
         self.ffd_norm = Norm_dict[norm_type](d_model)
@@ -95,7 +96,7 @@ class EncoderLayer(nn.Module):
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, c_in, c_out, bias = False, conv_norm = "batch", conv_activation = "relu"):
+    def __init__(self, c_in, c_out, bias = False, padding_mode = "replicate", conv_norm = "batch", conv_activation = "relu"):
         super(ConvLayer, self).__init__()
         """
         专门用来降低长度的convblock，默认kernel=3，
@@ -108,7 +109,7 @@ class ConvLayer(nn.Module):
                                   kernel_size  =  3 ,
                                   padding      =  1,
                                   bias         =  bias,  
-                                  padding_mode = "replicate")
+                                  padding_mode = padding_mode)
 
         self.normConv = Norm_dict[conv_norm](c_out)
 
