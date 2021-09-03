@@ -164,7 +164,7 @@ class TSCtransformer(nn.Module):
 
 from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, TransformerEncoderLayer
 import math
-
+from torch import nn, Tensor
 class TransformerBatchNormEncoderLayer(nn.modules.Module):
     r"""This transformer encoder layer block is made up of self-attn and feedforward network.
     It differs from TransformerEncoderLayer in torch/nn/modules/transformer.py in that it replaces LayerNorm
