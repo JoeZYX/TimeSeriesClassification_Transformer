@@ -7,7 +7,7 @@ import os
 import numpy as np
 import time
 from models.dataloader import data_loader_dict
-from models.model import TSCtransformer
+from models.model import TSCtransformer,TSTransformer_Basic
 from sklearn.metrics import accuracy_score
 
 
