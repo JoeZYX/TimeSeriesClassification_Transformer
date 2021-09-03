@@ -120,9 +120,12 @@ class Exp(object):
         return device
 
     def build_model(self):
-
-        model  = TSCtransformer(self.args)
-        print("Build the model!")
+        if self.args.model_type = "conv_TS":
+            model  = TSCtransformer(self.args)
+            print("Build the conv_TS model!")
+        else:
+            model  = TSTransformer_Basic(self.args)
+            print("Build the basic TS model!")
         return model.double()
 
     def _select_optimizer(self):
