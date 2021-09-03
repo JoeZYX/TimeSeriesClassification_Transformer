@@ -109,9 +109,9 @@ class TokenEmbedding(nn.Module):
 
         self.conv_layers = nn.ModuleList(self.conv_layers)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
+        #for m in self.modules():
+        #    if isinstance(m, nn.Conv1d):
+        #        nn.init.kaiming_normal_(m.weight)
 
 
 

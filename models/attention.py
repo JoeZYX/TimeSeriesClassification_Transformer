@@ -158,9 +158,9 @@ class AttentionLayer(nn.Module):
                                         padding_mode = padding_mode)
         self.proj_drop = nn.Dropout(projection_dropout)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
+        #for m in self.modules():
+        #    if isinstance(m, nn.Conv1d):
+        #        nn.init.kaiming_normal_(m.weight)
 
 
     def forward(self, queries, keys, values):

@@ -62,9 +62,9 @@ class EncoderLayer(nn.Module):
         self.ffd_dropout2 = nn.Dropout(feedforward_dropout)
         self.ffd_norm = Norm_dict[norm_type](d_model)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
+        #for m in self.modules():
+        #    if isinstance(m, nn.Conv1d):
+        #        nn.init.kaiming_normal_(m.weight)
 
 
 
@@ -118,9 +118,9 @@ class ConvLayer(nn.Module):
 
         self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight)
+        #for m in self.modules():
+        #    if isinstance(m, nn.Conv1d):
+        #        nn.init.kaiming_normal_(m.weight)
 
     def forward(self, x):
 
