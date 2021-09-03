@@ -108,8 +108,8 @@ class TSCtransformer(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
                 nn.init.kaiming_normal_(m.weight)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
+            #elif isinstance(m, nn.Linear):
+            #    nn.init.normal_(m.weight, 0, 0.01)
                 #nn.init.constant_(m.bias, 0)
 
         print("build prediction")
