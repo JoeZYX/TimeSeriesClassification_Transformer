@@ -317,7 +317,7 @@ class TSTransformer_Basic(nn.Module):
         if args.norm_type == 'LayerNorm':
             encoder_layer = TransformerEncoderLayer(args.token_d_model, args.n_heads, args.dim_feedforward, args.attn_dropout, activation=args.activation)
         else:
-            encoder_layer = TransformerBatchNormEncoderLayer(args.token_d_model, self.n_heads, args.dim_feedforward, args.attn_dropout, activation=args.activation)
+            encoder_layer = TransformerBatchNormEncoderLayer(args.token_d_model, args.n_heads, args.dim_feedforward, args.attn_dropout, activation=args.activation)
 
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, args.num_layers)
         self.act = _get_activation_fn(args.activation)
