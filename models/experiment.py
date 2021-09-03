@@ -120,7 +120,7 @@ class Exp(object):
         return device
 
     def build_model(self):
-        if self.args.model_type = "conv_TS":
+        if self.args.model_type == "conv_TS":
             model  = TSCtransformer(self.args)
             print("Build the conv_TS model!")
         else:
