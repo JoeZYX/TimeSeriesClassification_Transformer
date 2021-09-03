@@ -31,6 +31,9 @@ class Forward_block(nn.Module):
                  pooling_kernel_size=3, 
                  pooling_stride=2,
                  pooling_padding=1):
+        """
+        embedding的block 由 conv --> norm --> activation --> maxpooling组成
+        """
         super(Forward_block, self).__init__() 
         self.conv = nn.Conv1d(in_channels  =  c_in, 
                               out_channels =  c_out,
@@ -86,23 +89,6 @@ class TokenEmbedding(nn.Module):
         n_filter_list = [c_in] + [in_planes for _ in range(n_conv_layers - 1)] + [token_d_model]
         padding = int(kernel_size/2)
 
-        #self.conv_layers = nn.Sequential(
-        #    *[nn.Sequential(
-        #        nn.Conv1d(in_channels  =  n_filter_list[i], 
-        #                  out_channels =  n_filter_list[i + 1],
-        #                  kernel_size  =  kernel_size,
-        #                  padding      =  padding,
-        #                  stride       =  stride,
-        #                  bias         =  conv_bias,#),
-        #                  padding_mode = 'replicate'),
-        #        nn.Identity() if norm_type is None else nn.BatchNorm1d(n_filter_list[i + 1]),
-        #        nn.Identity() if activation is None else activation_dict[activation](),
-        #        nn.MaxPool1d(kernel_size = pooling_kernel_size,
-        #                     stride      = pooling_stride,
-        #                     padding     = pooling_padding) if max_pool else nn.Identity()
-        #    )
-        #        for i in range(n_conv_layers)
-        #    ])
 
         self.conv_layers = []
         for i in range(n_conv_layers):
@@ -120,15 +106,14 @@ class TokenEmbedding(nn.Module):
 
         self.conv_layers = nn.ModuleList(self.conv_layers)
 
-        #for m in self.modules():
-        #    if isinstance(m, nn.Conv1d):
-        #        nn.init.kaiming_normal_(m.weight)
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
 
 
 
     def forward(self, x):
 
-        #x = self.conv_layers(x.permute(0, 2, 1)).transpose(1,2)
 
         for layer in self.conv_layers:
             x = layer(x)

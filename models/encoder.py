@@ -20,11 +20,12 @@ class EncoderLayer(nn.Module):
     def __init__(self,
                  attention,
                  d_model,
-                 dim_feedforward=None, 
-                 feedforward_dropout=0.1,
-                 activation = "gelu",
-                 norm_type  = "layer",
-                 forward_kernel_size=1):
+                 dim_feedforward       = None, 
+                 feedforward_dropout   = 0.1,
+                 activation            = "gelu",
+                 norm_type             = "layer",
+                 forward_kernel_size   = 1,
+                 bias                  = False):
 
         super(EncoderLayer, self).__init__()
 		
@@ -37,30 +38,32 @@ class EncoderLayer(nn.Module):
 		
         # ======================== 第二部分，  feedforward   ==============================
 
-        self.dim_feedforward = dim_feedforward or 4*d_model
+        self.dim_feedforward = dim_feedforward or 2*d_model
         self.forward_kernel_size = forward_kernel_size
 
         self.ffd_conv1 = nn.Conv1d(in_channels  = d_model, 
                                    out_channels = self.dim_feedforward, 
                                    kernel_size  = self.forward_kernel_size,
                                    padding      =  int(self.forward_kernel_size/2),
-                                   bias         =  False,  
+                                   bias         =  bias,  
                                    padding_mode = "replicate")
 								   
         self.ffd_activation = Activation_dict[activation]()
-        self.ffd_dropout1 = nn.Dropout(feedforward_dropout)
+        #self.ffd_dropout1 = nn.Dropout(feedforward_dropout)
 
         self.ffd_conv2 = nn.Conv1d(in_channels   = self.dim_feedforward,
                                    out_channels  = d_model, 
                                    kernel_size   = self.forward_kernel_size,
                                    padding      =  int(self.forward_kernel_size/2),
-                                   bias         =  False,  
+                                   bias         =  bias,  
                                    padding_mode = "replicate")
 
         self.ffd_dropout2 = nn.Dropout(feedforward_dropout)
         self.ffd_norm = Norm_dict[norm_type](d_model)
 
-
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
 
 
 
@@ -68,6 +71,7 @@ class EncoderLayer(nn.Module):
         # ======================== 第一部分， self_attention ==============================
         # 输入维度 B L C 
         new_x, attn = self.self_attn(x, x, x)
+
         x  =  x + new_x
         if self.norm_type == "layer":
             x = self.attn_norm(x).permute(0, 2, 1)
@@ -76,19 +80,9 @@ class EncoderLayer(nn.Module):
         # 输入维度 B C L
         # ======================== 第二部分，  feedforward   ==============================
 
-
-        #forward_padding_size = int(self.forward_kernel_size/2)
-        #paddding_x   = nn.functional.pad(x, 
-        #                                 pad=(forward_padding_size, forward_padding_size),
-        #                                 mode='replicate')
-        #y            = self.ffd_dropout1(self.ffd_activation(self.ffd_conv1(paddding_x))) 
-        y            = 	self.ffd_dropout1(self.ffd_activation(self.ffd_conv1(x)))
-
-        #paddding_y   = nn.functional.pad(y, 
-        #                                 pad=(forward_padding_size, forward_padding_size),
-        #                                 mode='replicate')    
-        #y            = self.ffd_dropout2(self.ffd_conv2(paddding_y))
-        y            = self.ffd_dropout2(self.ffd_conv2(y))
+        #y            = 	self.ffd_dropout1(self.ffd_activation(self.ffd_conv1(x)))
+        y            = 	self.ffd_activation(self.ffd_conv1(x))
+        y            =  self.ffd_dropout2(self.ffd_conv2(y))
 
         y = x + y #[B,C,L]
         if self.norm_type == "layer":
@@ -101,7 +95,7 @@ class EncoderLayer(nn.Module):
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, c_in, c_out, conv_norm = "batch", conv_activation = "relu"):
+    def __init__(self, c_in, c_out, bias = False, conv_norm = "batch", conv_activation = "relu"):
         super(ConvLayer, self).__init__()
         """
         专门用来降低长度的convblock，默认kernel=3，
@@ -109,11 +103,11 @@ class ConvLayer(nn.Module):
         """
         self.norm_type = conv_norm
 
-        self.downConv = nn.Conv1d(in_channels=c_in,
-                                  out_channels=c_out,
-                                  kernel_size=3,
+        self.downConv = nn.Conv1d(in_channels  =  c_in,
+                                  out_channels =  c_out,
+                                  kernel_size  =  3 ,
                                   padding      =  1,
-                                  bias         =  False,  
+                                  bias         =  bias,  
                                   padding_mode = "replicate")
 
         self.normConv = Norm_dict[conv_norm](c_out)
@@ -123,12 +117,13 @@ class ConvLayer(nn.Module):
 
         self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
 
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
+
     def forward(self, x):
 
-        #paddding_x   = nn.functional.pad(x.permute(0, 2, 1), 
-        #                                 pad=(1, 1),
-        #                                 mode='replicate')
-        #x = self.downConv(paddding_x)
+
         x  = self.downConv(x.permute(0, 2, 1))
 
         if self.norm_type == "layer":
@@ -164,20 +159,7 @@ class Encoder(nn.Module):
 
 
     def forward(self, x):
-        # x [B, L, D]
-        #attns = []
-        #if self.conv_layers is not None:
-        #    for encoder_layer, conv_layer in zip(self.encoder_layers, self.conv_layers):
-        #        x, attn = encoder_layer(x)
-        #        x = conv_layer(x)
-        #        attns.append(attn)
 
-        #    x, attn = self.encoder_layers[-1](x)
-        #    attns.append(attn)
-        #else:
-        #    for encoder_layer in self.encoder_layers:
-        #        x, attn = encoder_layer(x)
-        #        attns.append(attn)
         attns = []
 
 

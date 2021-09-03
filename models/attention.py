@@ -93,11 +93,12 @@ class AttentionLayer(nn.Module):
                  attention, 
                  d_model, 
                  n_heads, 
-                 d_keys=None, 
-                 d_values=None, 
-                 causal_kernel_size=3, 
-                 value_kernel_size = 1,
-                 projection_dropout=0.1):
+                 d_keys               =  None, 
+                 d_values             =  None, 
+                 causal_kernel_size   =  3, 
+                 value_kernel_size    =  1,
+                 bias                 = False,
+                 projection_dropout   =  0.1):
         """
 
         attention          :    要进行什么样子的attention？Probmask？seasonal？还是全局的？ 默认就是full吧
@@ -127,7 +128,7 @@ class AttentionLayer(nn.Module):
                                           out_channels = self.d_keys*self.n_heads, 
                                           kernel_size  = self.causal_kernel_size,
                                           padding      =  int(self.causal_kernel_size/2),
-                                          bias         =  False,  
+                                          bias         =  bias,  
                                           padding_mode = "replicate")
 
 
@@ -135,7 +136,7 @@ class AttentionLayer(nn.Module):
                                         out_channels = self.d_keys*self.n_heads, 
                                         kernel_size  = self.causal_kernel_size,
                                         padding      =  int(self.causal_kernel_size/2),
-                                        bias         =  False,  
+                                        bias         =  bias,  
                                         padding_mode = "replicate")
 
 
@@ -143,7 +144,7 @@ class AttentionLayer(nn.Module):
                                           out_channels = self.d_values * self.n_heads, 
                                           kernel_size  = self.value_kernel_size,
                                           padding      =  int(self.value_kernel_size/2),
-                                          bias         =  False,  
+                                          bias         =  bias,  
                                           padding_mode = "replicate")
 										  
         self.inner_attention = attention
@@ -152,9 +153,13 @@ class AttentionLayer(nn.Module):
                                         out_channels=d_model,                                        # 由于有skip的机制，所以整个attention的输入和输出要保持一直
                                         kernel_size = self.value_kernel_size,
                                         padding      =  int(self.value_kernel_size/2),
-                                        bias         =  False,  
+                                        bias         =  bias,  
                                         padding_mode = "replicate")
         self.proj_drop = nn.Dropout(projection_dropout)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
 
 
     def forward(self, queries, keys, values):
@@ -166,29 +171,13 @@ class AttentionLayer(nn.Module):
 
         # # 以上 B L C 中的C是包含了所有Head的特征，映射之后拆分为，每个head的特征，也就是， [B, L, H, C] 
         #  ========================== value projection ==========================
-        #value_padding_size   = int(self.value_kernel_size/2)
-        #paddding_values      = nn.functional.pad(values.permute(0, 2, 1), 
-        #                                         pad=(value_padding_size, value_padding_size),
-        #                                         mode='replicate')
-        #values               = self.value_projection(paddding_values).permute(0, 2, 1)  # B L C
         values               = self.value_projection(values.permute(0, 2, 1)).permute(0, 2, 1)
         values               = values.view(B, L_V, H, -1)
 
         # ========================== query  keys projection ==========================
-        #queries_padding_size = int(self.causal_kernel_size/2)
-
-        #paddding_queries     = nn.functional.pad(queries.permute(0, 2, 1), 
-        #                                         pad=(queries_padding_size, queries_padding_size),
-        #                                         mode='replicate')
-        #queries              = self.query_projection(paddding_queries).permute(0, 2, 1) # B L C
         queries              = self.query_projection(queries.permute(0, 2, 1)).permute(0, 2, 1)
         queries              = queries.view(B, L_Q, H, -1)
 
-     
-        #paddding_keys        = nn.functional.pad(keys.permute(0, 2, 1), 
-        #                                         pad=(queries_padding_size, queries_padding_size),
-        #                                         mode='replicate')
-        #keys                 = self.key_projection(paddding_keys).permute(0, 2, 1) # B L C  
         keys                 = self.key_projection(keys.permute(0, 2, 1)).permute(0, 2, 1)
         keys                 = keys.view(B, L_K, H, -1)   
 
@@ -202,10 +191,7 @@ class AttentionLayer(nn.Module):
         out = out.view(B, L_V, -1)                                                                 # TODO L_V?                                                 
 
         # ========================== Out Projection ==========================
-        #paddding_out        = nn.functional.pad(out.permute(0, 2, 1), 
-        #                                        pad=(value_padding_size, value_padding_size),
-        #                                        mode='replicate')
-        #out                 = self.out_projection(paddding_out).permute(0, 2, 1)
+
         out                 = self.out_projection(out.permute(0, 2, 1)).permute(0, 2, 1)
 			
         out                 = self.proj_drop(out)

@@ -63,6 +63,7 @@ class TSCtransformer(nn.Module):
                                                             d_values           = args.d_values, 
                                                             causal_kernel_size = args.causal_kernel_size, 
                                                             value_kernel_size  = args.value_kernel_size,
+                                                            bias               = args.bias,
                                                             projection_dropout = args.projection_dropout),
 
                                              d_model             = args.token_d_model,
@@ -70,10 +71,12 @@ class TSCtransformer(nn.Module):
                                              feedforward_dropout = args.feedforward_dropout,
                                              activation          = args.feedforward_activation,
                                              norm_type           = args.feedforward_norm_type,
-                                             forward_kernel_size = args.forward_kernel_size) for l in range(args.e_layers)],
+                                             forward_kernel_size = args.forward_kernel_size,
+                                             bias                = args.bias) for l in range(args.e_layers)],
 
                                [ConvLayer( c_in            = args.token_d_model, 
-                                           c_out           = args.token_d_model,  
+                                           c_out           = args.token_d_model,
+                                           bias            = args.bias,
                                            conv_norm       = args.conv_norm, 
                                            conv_activation = args.conv_activation ) for l in range(args.e_layers-1)] if args.distil else None
                                )
