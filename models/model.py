@@ -86,7 +86,12 @@ class TSCtransformer(nn.Module):
         self.attention_pool = nn.Linear(args.token_d_model, 1)
         self.classes_prediction = nn.Linear(args.token_d_model, args.num_classes)
 
-
+        for m in self.modules():
+            if isinstance(m, nn.Conv1d):
+                nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
         # Variante 2 --------------
         #self.donwconv = nn.Conv1d( in_channels    = args.token_d_model,  
         #                           out_channels   = 1, 
