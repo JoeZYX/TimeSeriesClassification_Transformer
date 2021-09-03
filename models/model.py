@@ -363,7 +363,7 @@ class TSTransformer_Basic(nn.Module):
         x = self.dropout1(x)
 
         # Output
-        x = x * padding_masks.unsqueeze(-1)  # zero-out padding embeddings
+        # x = x * padding_masks.unsqueeze(-1)  # zero-out padding embeddings
         x = x.reshape(x.shape[0], -1)  # (batch_size, seq_length * d_model)
         x = self.output_layer(x)  # (batch_size, num_classes)
 
