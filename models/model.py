@@ -367,6 +367,6 @@ class TSTransformer_Basic(nn.Module):
         x = x.reshape(x.shape[0], -1)  # (batch_size, seq_length * d_model)
         x = self.output_layer(x)  # (batch_size, num_classes)
 
-        return output
+        return x
 
 		
