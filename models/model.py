@@ -166,6 +166,16 @@ from torch.nn.modules import MultiheadAttention, Linear, Dropout, BatchNorm1d, T
 import math
 from torch import nn, Tensor
 from typing import Optional, Any
+
+def _get_activation_fn(activation):
+    if activation == "relu":
+        return F.relu
+    elif activation == "gelu":
+        return F.gelu
+    raise ValueError("activation should be relu/gelu, not {}".format(activation))
+
+
+
 class TransformerBatchNormEncoderLayer(nn.modules.Module):
     r"""This transformer encoder layer block is made up of self-attn and feedforward network.
     It differs from TransformerEncoderLayer in torch/nn/modules/transformer.py in that it replaces LayerNorm
