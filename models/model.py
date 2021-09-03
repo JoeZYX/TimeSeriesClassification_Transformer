@@ -111,7 +111,7 @@ class TSCtransformer(nn.Module):
             #elif isinstance(m, nn.Linear):
             #    nn.init.normal_(m.weight, 0, 0.01)
                 #nn.init.constant_(m.bias, 0)
-        self.apply(self.init_weight)
+        #self.apply(self.init_weight)
         print("build prediction")
 
 
