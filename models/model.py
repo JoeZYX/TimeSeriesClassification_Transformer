@@ -52,22 +52,30 @@ class TSCtransformer(nn.Module):
         self.input_embedding_dropout = nn.Dropout(p = args.input_embedding_dropout) 
         print("build embedding")
         # ================================ Encoding part ================================
+        nr_heads_type      = len(args.attention_layer_types)
+        heads_each_type    = int(args.n_heads/nr_heads_type)
+        d_model_each_type  = int(args.token_d_model/nr_heads_type)
+        attention_layer_list = []
+        for type_attn in args.attention_layer_types:
+            attention_layer_list.append(AttentionLayer(attention          = MaskAttention(mask_flag          = True, 
+                                                                                          mask_typ           = type_attn,
+                                                                                          attention_dropout  = args.attention_dropout, 
+                                                                                          output_attention   = args.output_attention ),
+                                                       input_dim          = args.token_d_model,
+                                                       d_model            = d_model_each_type, 
+                                                       n_heads            = heads_each_type,
+                                                       d_keys             = args.d_keys, 
+                                                       d_values           = args.d_values, 
+                                                       causal_kernel_size = args.causal_kernel_size, 
+                                                       value_kernel_size  = args.value_kernel_size,
+                                                       bias               = args.bias,
+                                                       padding_mode       = args.padding_mode,
+                                                       projection_dropout = args.projection_dropout))
 
-        self.encoder = Encoder([EncoderLayer(AttentionLayer(attention          = MaskAttention(mask_flag          = args.mask_flag, 
-                                                                                               mask_typ           = args.mask_typ,
-                                                                                               attention_dropout  = args.attention_dropout, 
-                                                                                               output_attention   = args.output_attention ),
+        attention_layer_list = nn.ModuleList(attention_layer_list)
 
-                                                            d_model            = args.token_d_model, 
-                                                            n_heads            = args.n_heads,
-                                                            d_keys             = args.d_keys, 
-                                                            d_values           = args.d_values, 
-                                                            causal_kernel_size = args.causal_kernel_size, 
-                                                            value_kernel_size  = args.value_kernel_size,
-                                                            bias               = args.bias,
-                                                            padding_mode       = args.padding_mode,
-                                                            projection_dropout = args.projection_dropout),
 
+        self.encoder = Encoder([EncoderLayer(attention_list      = attention_layer_list,
                                              d_model             = args.token_d_model,
                                              dim_feedforward     = args.feedforward_dim, 
                                              feedforward_dropout = args.feedforward_dropout,

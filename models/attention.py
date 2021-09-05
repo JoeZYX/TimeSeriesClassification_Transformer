@@ -24,7 +24,81 @@ class TriangularCausalMask():
     def mask(self):
         return self._mask
 
-Mask_dict = {"Triangular"     :TriangularCausalMask}
+class FullMask():
+    def __init__(self, B, L, device="cpu"):
+        with torch.no_grad():
+            mask = torch.ones((L, L)).to(device)
+            mask = mask==0
+            mask = torch.unsqueeze(mask, 0)
+            self._mask = mask.expand(B, 1, L, L).to(device)  
+            
+    @property   
+    def mask(self):
+        return self._mask
+
+class LocalSymmetryMask():
+    def __init__(self, B, L, device="cpu"):
+        with torch.no_grad():
+            window_size = math.ceil(1.2*np.log2(L)/2)  #halb
+            mask = torch.ones((L, L)).to(device)
+            mask = torch.triu(mask,-window_size).T
+            mask = torch.triu(mask,-window_size)
+            mask = mask==0
+            mask = torch.unsqueeze(mask, 0)
+            self._mask = mask.expand(B, 1, L, L).to(device)  
+    @property            
+    def mask(self):
+        return self._mask
+
+class LocalLogSymmetryMask():
+    def __init__(self, B, L, device="cpu"):
+        with torch.no_grad():
+            mask = torch.zeros((L, L), dtype=torch.float).to(device)
+            for i in range(L):
+                mask[i] = self.row_mask(i, L)
+            mask = mask==0
+            mask = torch.unsqueeze(mask, 0)
+            self._mask = mask.expand(B, 1, L, L).to(device)
+
+            
+    def row_mask(self,index, L):
+        local_window_size = math.ceil(np.log2(L)/2) # 1/2 window size
+        # 对当前行的index 行 进行初始化
+        mask = torch.zeros((L), dtype=torch.float)
+
+        if((index - local_window_size + 1) < 0):
+            mask[:index] = 1 # Local attention
+        else:
+            mask[index - local_window_size + 1:(index + 1)] = 1  # Local attention
+
+            for i in range(0, math.ceil(10*np.log2(L))):
+                new_index = index - local_window_size + 1 - int(1.5**i)
+                if new_index >= 0:
+                    mask[new_index] = 1
+                else:
+                    break
+                    
+        if ((index + local_window_size-1 )>=L):
+            mask[index:] = 1 
+        else:
+            mask[index:index+local_window_size] = 1  # Local attention
+
+            for i in range(0, math.ceil(10*np.log2(L))):
+                new_index = index + local_window_size-1 +int(1.5**i)
+                if new_index < L:
+                    mask[new_index] = 1
+                else:
+                    break
+        return mask               
+
+    @property          
+    def mask(self):
+        return self._mask
+
+Mask_dict = {"Triangular"     :TriangularCausalMask,
+             "LocalSymmetry"  :LocalSymmetryMask,
+             "Full"           :FullMask,
+             "LocLogSymmetry" :LocalLogSymmetryMask}
 
 
 
@@ -91,6 +165,7 @@ class MaskAttention(nn.Module):
 class AttentionLayer(nn.Module):
     def __init__(self, 
                  attention, 
+                 input_dim,
                  d_model, 
                  n_heads, 
                  d_keys               =  None, 
@@ -116,8 +191,8 @@ class AttentionLayer(nn.Module):
         super(AttentionLayer, self).__init__()
 
         self.n_heads = n_heads
-        self.d_keys = d_keys or (d_model//n_heads)                                                   # 每个head中，key和query的维度
-        self.d_values = d_values or (d_model//n_heads)                                               # 每个head中，value 的维度, 一般情况应该和key一样
+        self.d_keys = d_keys or d_model                                                              # 每个head中，key和query的维度
+        self.d_values = d_values or d_model                                                          # 每个head中，value 的维度, 一般情况应该和key一样
 
         # 因为是时间序列，这里采取的causal attention，通过设置kernel的大小，可以是linear
         self.causal_kernel_size = causal_kernel_size                                                 # 提取key和query的kernel大小，当等于1时，就是linear，当大于1时就是conv
@@ -125,24 +200,24 @@ class AttentionLayer(nn.Module):
         self.projection_dropout = projection_dropout
 
         # 初始化4个projection，分别时key，query， value以及最后新value的out的projection
-        self.query_projection = nn.Conv1d(in_channels  = d_model,
-                                          out_channels = self.d_keys*self.n_heads, 
+        self.query_projection = nn.Conv1d(in_channels  = input_dim,
+                                          out_channels = self.d_keys, 
                                           kernel_size  = self.causal_kernel_size,
                                           padding      =  int(self.causal_kernel_size/2),
                                           bias         =  bias,  
                                           padding_mode = padding_mode)
 
 
-        self.key_projection = nn.Conv1d(in_channels  = d_model,
-                                        out_channels = self.d_keys*self.n_heads, 
+        self.key_projection = nn.Conv1d(in_channels  = input_dim,
+                                        out_channels = self.d_keys, 
                                         kernel_size  = self.causal_kernel_size,
                                         padding      =  int(self.causal_kernel_size/2),
                                         bias         =  bias,  
                                         padding_mode = padding_mode)
 
 
-        self.value_projection = nn.Conv1d(in_channels  = d_model,
-                                          out_channels = self.d_values * self.n_heads, 
+        self.value_projection = nn.Conv1d(in_channels  = input_dim,
+                                          out_channels = self.d_values , 
                                           kernel_size  = self.value_kernel_size,
                                           padding      =  int(self.value_kernel_size/2),
                                           bias         =  bias,  
@@ -150,11 +225,11 @@ class AttentionLayer(nn.Module):
 										  
         self.inner_attention = attention
 
-        self.out_projection = nn.Conv1d(in_channels=self.d_values * self.n_heads,                    # 与前三个projection的输入维度不一样，因为这里的输入时attention后的新value
-                                        out_channels=d_model,                                        # 由于有skip的机制，所以整个attention的输入和输出要保持一直
-                                        kernel_size = self.value_kernel_size,
-                                        padding      =  int(self.value_kernel_size/2),
-                                        bias         =  bias,  
+        self.out_projection = nn.Conv1d(in_channels  = self.d_values ,                                  # 与前三个projection的输入维度不一样，因为这里的输入时attention后的新value
+                                        out_channels = d_model,                                        # 由于有skip的机制，所以整个attention的输入和输出要保持一直
+                                        kernel_size  = self.value_kernel_size,
+                                        padding      = int(self.value_kernel_size/2),
+                                        bias         = bias,  
                                         padding_mode = padding_mode)
         self.proj_drop = nn.Dropout(projection_dropout)
 

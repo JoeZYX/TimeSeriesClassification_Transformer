@@ -18,7 +18,7 @@ class EncoderLayer(nn.Module):
 
 
     def __init__(self,
-                 attention,
+                 attention_list,
                  d_model,
                  dim_feedforward       = None, 
                  feedforward_dropout   = 0.1,
@@ -34,7 +34,7 @@ class EncoderLayer(nn.Module):
         # 输入是经过了norm的，所以不像其他代码，这里有prenorm
         # norm只发生在两个地方. 1. attention（x）+x  2. x+feedforward(x)  有prenorm的，都是在第二部之后，没有norm
         # ======================== 第一部分， self_attention ==============================
-        self.self_attn = attention
+        self.self_attn_list = attention_list
         self.attn_norm = Norm_dict[norm_type](d_model)
 		
         # ======================== 第二部分，  feedforward   ==============================
@@ -71,7 +71,15 @@ class EncoderLayer(nn.Module):
     def forward(self, x):
         # ======================== 第一部分， self_attention ==============================
         # 输入维度 B L C 
-        new_x, attn = self.self_attn(x, x, x)
+        attn_list = []
+        x_list = []
+        for self_attn in self.self_attn_list:
+            out_x, out_attn = self_attn(x, x, x)
+            attn_list.append(out_attn)
+            x_list.append(out_x)
+        # 出来的维度都是 B L C ，所以根据维度C进行叠加
+        new_x =torch.cat(x_list,dim=-1) 
+        attn = torch.cat(attn_list,dim=1)
 
         x  =  x + new_x
         if self.norm_type == "layer":
