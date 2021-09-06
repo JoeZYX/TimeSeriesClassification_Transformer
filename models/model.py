@@ -50,13 +50,14 @@ class TSCtransformer(nn.Module):
             self.pos_embedding = None
 
         self.input_embedding_dropout = nn.Dropout(p = args.input_embedding_dropout) 
-        print("build embedding")
+        print("build embedding Done")
         # ================================ Encoding part ================================
         nr_heads_type      = len(args.attention_layer_types)
         heads_each_type    = int(args.n_heads/nr_heads_type)
         d_model_each_type  = int(args.token_d_model/nr_heads_type)
         attention_layer_list = []
         for type_attn in args.attention_layer_types:
+            print("build {} attention".format(type_attn))
             attention_layer_list.append(AttentionLayer(attention          = MaskAttention(mask_flag          = True, 
                                                                                           mask_typ           = type_attn,
                                                                                           attention_dropout  = args.attention_dropout, 
@@ -92,7 +93,7 @@ class TSCtransformer(nn.Module):
                                            conv_norm       = args.conv_norm, 
                                            conv_activation = args.conv_activation ) for l in range(args.e_layers-1)] if args.distil else None
                                )
-        print("build encoder")
+        print("build encoder Done")
         # ================================ Prediction part ================================
         # Variante 1 --------------
         self.attention_pool = nn.Linear(args.token_d_model, 1)
@@ -120,7 +121,7 @@ class TSCtransformer(nn.Module):
             #    nn.init.normal_(m.weight, 0, 0.01)
                 #nn.init.constant_(m.bias, 0)
         #self.apply(self.init_weight)
-        print("build prediction")
+        print("build prediction Done")
 
 
     def forward(self, x):
