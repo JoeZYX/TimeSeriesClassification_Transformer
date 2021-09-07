@@ -288,7 +288,7 @@ class UCR_TSC_DATA_UNIVARIATE(Dataset):
         return sample_x,sample_y
 
     def __len__(self):
-        return len(self.data_x)
+        return len(self.data_x.index.unique())
 
 def plot_the_ucr_uni_data_set(train_x, train_y, test_x, test_y):
 
