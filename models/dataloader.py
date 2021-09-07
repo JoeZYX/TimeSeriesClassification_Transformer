@@ -292,8 +292,6 @@ class UCR_TSC_DATA_UNIVARIATE(Dataset):
 
 def plot_the_ucr_uni_data_set(train_x, train_y, test_x, test_y):
 
-def plot_the_ucr_uni_data_set(train_x, train_y, test_x, test_y):
-
     fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(15,5))
     axs[0].hist(train_y,bins=len(set(train_y)))
     axs[0].set_title('Train')
@@ -311,6 +309,7 @@ def plot_the_ucr_uni_data_set(train_x, train_y, test_x, test_y):
             axs[index].plot(test_x.loc[item].reset_index(drop=True),color="b",label = "test")
         for item in np.where(train_y == i)[0]:
             axs[index].plot(train_x.loc[item].reset_index(drop=True),color="r",label = "train")  
+
 
 data_loader_dict = {"uci_har" : UCI_HAR_DATA,
                     "ucr_uni" : UCR_TSC_DATA_UNIVARIATE}
