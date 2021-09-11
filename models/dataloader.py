@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import pickle
 from random import sample
-
+from sktime.utils import load_data
 class Normalizer(object):
     """
     Normalizes dataframe across ALL contained rows (time steps). Different from per-sample normalization.
@@ -29,7 +29,13 @@ class Normalizer(object):
             self.std = df.std(0)
         elif self.norm_type == "minmax":
             self.max_val = df.max()
-            self.min_val = df.min() 
+            self.min_val = df.min()
+        elif self.norm_type == "per_sample_std":
+            self.max_val = None
+            self.min_val = None
+        elif self.norm_type == "per_sample_minmax":
+            self.max_val = None
+            self.min_val = None
         else:
             raise (NameError(f'Normalize method "{self.norm_type}" not implemented'))
 
@@ -41,12 +47,17 @@ class Normalizer(object):
             df: normalized dataframe
         """
         if self.norm_type == "standardization":
-
             return (df - self.mean) / (self.std + np.finfo(float).eps)
 
         elif self.norm_type == "minmax":
-
             return (df - self.min_val) / (self.max_val - self.min_val + np.finfo(float).eps)
+        elif self.norm_type == "per_sample_std":
+            grouped = df.groupby(by=df.index)
+            return (df - grouped.transform('mean')) / grouped.transform('std')
+        elif self.norm_type == "per_sample_minmax":
+            grouped = df.groupby(by=df.index)
+            min_vals = grouped.transform('min')
+            return (df - min_vals) / (grouped.transform('max') - min_vals + np.finfo(float).eps)
 
         else:
             raise (NameError(f'Normalize method "{self.norm_type}" not implemented'))
@@ -310,9 +321,175 @@ def plot_the_ucr_uni_data_set(train_x, train_y, test_x, test_y):
         for item in np.where(train_y == i)[0]:
             axs[index].plot(train_x.loc[item].reset_index(drop=True),color="r",label = "train")  
 
+# ======================================= UCR MULTI TIME SERIES ====================================
+def interpolate_missing(y):
+    """
+    Replaces NaN values in pd.Series `y` using linear interpolation
+    """
+    if y.isna().any():
+        y = y.interpolate(method='linear', limit_direction='both')
+    return y
 
-data_loader_dict = {"uci_har" : UCI_HAR_DATA,
-                    "ucr_uni" : UCR_TSC_DATA_UNIVARIATE}
+class UCR_TSC_DATA_MULTIVARIATE(Dataset):
+    def __init__(self, args, flag="train"):
 
-plot_dict = {"uci_har" : plot_the_uci_har_data_set,
-             "ucr_uni" : plot_the_ucr_uni_data_set}
+        self.root_path    = args.root_path
+        self.data_name    = args.data_name
+        
+        self.difference   = args.difference
+        self.augmentation = args.augmentation
+        self.datanorm_type= args.datanorm_type
+        self.flag         = flag
+
+
+        self.read_data()
+    def read_data(self):
+        print("load the data ", self.root_path, " " , self.data_name)
+        train_x, train_y, test_x, test_y = self.load_the_data(root_path     = self.root_path, 
+                                                              data_name     = self.data_name, 
+                                                              norm_type     = self.datanorm_type,
+                                                              difference    = self.difference)
+        if self.flag == "train":
+            print("Train data number : ", len(train_x)/train_x.loc[0].shape[0])
+            self.data_x = train_x.copy()
+            self.data_y = train_y.copy()
+
+        else:
+            print("Test data number : ", len(test_x)/test_x.loc[0].shape[0])
+            self.data_x  = test_x.copy()
+            self.data_y  = test_y.copy()
+
+
+        self.nb_classes = len(np.unique(np.concatenate((train_y, test_y), axis=0)))
+        print("The number of classes is : ", self.nb_classes)
+        self.input_length = self.data_x.loc[0].shape[0]
+        self.channel_in = self.data_x.loc[0].shape[1]
+        if self.flag == "train":
+            print("The input_length  is : ", self.input_length)
+            print("The channel_in is : ", self.channel_in)
+    
+    def check_if_all_sensor_same_length(self, data_frame):
+        lengths = data_frame.applymap(lambda x: len(x)).values  # (num_samples, num_dimensions) array containing the length of each series
+        horiz_diffs = np.abs(lengths - np.expand_dims(lengths[:, 0], -1))
+        if np.sum(horiz_diffs) > 0:  # if any row (sample) has varying length across dimensions
+            return True
+        else:
+            return False
+    def check_if_all_data_same_length(self, data_frame):
+        lengths = data_frame.applymap(lambda x: len(x)).values
+        vert_diffs = np.abs(lengths - np.expand_dims(lengths[0, :], 0))
+        if np.sum(vert_diffs) > 0:  # if any column (dimension) has varying length across samples
+            return True
+        else:
+            return False
+        
+    def load_the_data(self, root_path, data_name, norm_type, difference):
+        # get the right data_file 
+        data_paths = glob.glob(os.path.join(os.path.join(root_path,data_name), '*'))
+        train_path = list(filter(lambda x: re.search("TRAIN", x), data_paths))
+        test_path = list(filter(lambda x: re.search("TEST", x), data_paths))
+        assert len(train_path)==1
+        assert len(test_path)==1
+        train_path = train_path[0]
+        test_path = test_path[0]
+
+        # load the data
+        train_df, train_labels = load_data.load_from_tsfile_to_dataframe(train_path, return_separate_X_and_y=True, replace_missing_vals_with='NaN')
+        train_labels = pd.Series(train_labels, dtype="category")
+        train_labels = pd.DataFrame(train_labels.cat.codes, dtype=np.int8)
+
+        test_df, test_labels = load_data.load_from_tsfile_to_dataframe(test_path, return_separate_X_and_y=True, replace_missing_vals_with='NaN')
+        test_labels = pd.Series(test_labels, dtype="category")
+        test_labels = pd.DataFrame(test_labels.cat.codes, dtype=np.int8)  
+        
+        test_labels = test_labels.iloc[:,0].values
+        train_labels = train_labels.iloc[:,0].values
+
+        # check the data valid
+        flag_train_0 = self.check_if_all_sensor_same_length(train_df.copy())
+        flag_test_0  = self.check_if_all_sensor_same_length(test_df.copy())
+        flag_train_1 = self.check_if_all_data_same_length(train_df.copy())
+        flag_test_1  = self.check_if_all_data_same_length(test_df.copy())
+        if flag_train_0 or flag_test_0 or flag_train_1 or flag_test_1:
+            raise Exception("change a dataset")
+
+        # 
+        lengths_train = train_df.applymap(lambda x: len(x)).values
+        train_df = pd.concat((pd.DataFrame({col: train_df.loc[row, col] for col in train_df.columns})\
+                              .reset_index(drop=True).set_index(pd.Series(lengths_train[row, 0]*[row])) \
+                              for row in range(train_df.shape[0])), axis=0)
+        lengths_test = test_df.applymap(lambda x: len(x)).values
+        test_df  = pd.concat((pd.DataFrame({col: test_df.loc[row, col] for col in test_df.columns})\
+                              .reset_index(drop=True).set_index(pd.Series(lengths_test[row, 0]*[row])) \
+                              for row in range(test_df.shape[0])), axis=0)
+
+        # Replace NaN values
+        traingrp = train_df.groupby(by=train_df.index)
+        train_df = traingrp.transform(interpolate_missing)
+
+        testgrp = test_df.groupby(by=test_df.index)
+        test_df = testgrp.transform(interpolate_missing) 
+        
+        
+        
+        if difference:
+            columns = ["diff_"+i for i in train_df.columns]
+            
+            grouped_train_df = train_df.groupby(by=train_df.index)
+            diff_train_df = grouped_train_df.diff()
+            diff_train_df.columns = columns
+            diff_train_df.fillna(method ="backfill",inplace=True)
+
+            grouped_test_df = test_df.groupby(by=test_df.index)
+            diff_test_df = grouped_test_df.diff()
+            diff_test_df.columns = columns
+            diff_test_df.fillna(method ="backfill",inplace=True)
+
+            train_df = pd.concat([train_df,diff_train_df], axis=1)
+            test_df  = pd.concat([test_df, diff_test_df],  axis=1)
+
+
+        if norm_type is not None:
+            self.normalizer = Normalizer(norm_type)
+            self.normalizer.fit(train_df)
+            train_df = self.normalizer.normalize(train_df)
+            test_df  = self.normalizer.normalize(test_df)
+        
+        return train_df, train_labels, test_df, test_labels
+
+    def __getitem__(self, index):
+        sample_x = self.data_x.loc[index].values
+        sample_y = self.data_y[index]
+        return sample_x, sample_y
+
+    def __len__(self):
+        return len(self.data_x.index.unique())
+
+def plot_the_ucr_multi_data_set(train_x, train_y, test_x, test_y, col_plot=0):
+
+    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(15,5))
+    axs[0].hist(train_y,bins=len(set(train_y)))
+    axs[0].set_title('Train')
+    axs[1].hist(test_y,bins=len(set(test_y)))
+    axs[1].set_title('Test')
+    plt.show()
+
+    y_train_test = np.concatenate((train_y, test_y), axis=0)
+
+    classes = set(y_train_test)
+    number_of_class = len(classes)
+    fig, axs = plt.subplots(nrows=number_of_class, ncols=1, figsize=(15,5*number_of_class))
+    for index,i in enumerate(classes):
+        for item in np.where(test_y == i)[0]:
+            axs[index].plot(test_x.loc[item].iloc[:,col_plot].reset_index(drop=True),color="b",label = "test")
+        for item in np.where(train_y == i)[0]:
+            axs[index].plot(train_x.loc[item].iloc[:,col_plot].reset_index(drop=True),color="r",label = "train")
+# ================================================
+
+data_loader_dict = {"uci_har"   : UCI_HAR_DATA,
+                    "ucr_uni"   : UCR_TSC_DATA_UNIVARIATE,
+                    "ucr_multi" : UCR_TSC_DATA_MULTIVARIATE}
+
+plot_dict = {"uci_har"    : plot_the_uci_har_data_set,
+             "ucr_uni"    : plot_the_ucr_uni_data_set,
+             "ucr_multi"  : plot_the_ucr_multi_data_set}
