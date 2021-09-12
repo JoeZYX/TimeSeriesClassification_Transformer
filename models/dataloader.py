@@ -534,6 +534,8 @@ class PAMAP2_HAR_DATA(Dataset):
                                                               difference    = self.difference)
         
 
+        train_y, test_y = self.transform_labels(train_y, test_y)
+
 
         if self.flag == "train":
 
@@ -644,6 +646,33 @@ class PAMAP2_HAR_DATA(Dataset):
                 end   = start + windowsize
         self.sliding_index = train_window
 
+    def transform_labels(self, y_train, y_test):
+        """
+        Transform label to min equal zero and continuous
+        For example if we have [1,3,4] --->  [0,1,2]
+        """
+        # no validation split
+        # init the encoder
+        encoder = LabelEncoder()
+        # concat train and test to fit
+        y_train_test = np.concatenate((y_train, y_test), axis=0)
+        # fit the encoder
+        encoder.fit(y_train_test)
+        # transform to min zero and continuous labels
+        new_y_train_test = encoder.transform(y_train_test)
+        # resplit the train and test
+        new_y_train = new_y_train_test[0:len(y_train)]
+        new_y_test = new_y_train_test[len(y_train):]
+        
+        new_y_train = pd.Series(new_y_train)
+        new_y_train.index = y_train.index
+        new_y_train.name = "activity_id"
+        
+        new_y_test =  pd.Series(new_y_test)
+        new_y_test.index = y_test.index
+        new_y_test.name = "activity_id"
+
+        return new_y_train, new_y_test    
         
     def __getitem__(self, index):
         start, end = self.sliding_index[index]
