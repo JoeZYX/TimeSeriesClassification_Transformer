@@ -568,6 +568,7 @@ class PAMAP2_HAR_DATA(Dataset):
             sub_data.columns = self.col_names
             drop_index = list(sub_data.index[(sub_data['activity_id'].isin([0,9,10,11,18,19,20]))])
             sub_data = sub_data.drop(drop_index)
+            sub_data.fillna(method ="backfill",inplace=True)
             sub_data['sub_id'] =int(file[9])
             df_dict[file.split(".")[0]] = sub_data   
 
