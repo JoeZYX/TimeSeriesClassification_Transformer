@@ -486,11 +486,177 @@ def plot_the_ucr_multi_data_set(train_x, train_y, test_x, test_y, col_plot=0):
             axs[index].plot(test_x.loc[item].iloc[:,col_plot].reset_index(drop=True),color="b",label = "test")
         for item in np.where(train_y == i)[0]:
             axs[index].plot(train_x.loc[item].iloc[:,col_plot].reset_index(drop=True),color="r",label = "train")
+
+
+
+
+
+# ================================= PAMAP2 HAR DATASET ============================================
+class PAMAP2_HAR_DATA(Dataset):
+
+    def __init__(self, args, flag="train"):
+
+        self.root_path    = args.root_path
+        self.data_name    = "PAMAP2 HAR"
+        self.difference   = args.difference
+        self.augmentation = args.augmentation
+        self.datanorm_type= args.datanorm_type
+        self.flag         = flag
+        self.used_cols    = [1,  # Label
+                             4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,  # IMU Hand
+                             21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,  # IMU Chest
+                             38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49  # IMU ankle
+                            ]
+        self.train_keys   = ['subject101', 'subject102', 'subject103', 
+                             'subject104', 'subject105', 
+                             'subject107', 'subject108', 'subject109']
+        self.test_keys    = ['subject106']
+        
+        col_names=['activity_id']
+
+        IMU_locations = ['hand', 'chest', 'ankle']
+        IMU_data      = ['acc_16_01', 'acc_16_02', 'acc_16_03',
+                         'acc_06_01', 'acc_06_02', 'acc_06_03',
+                         'gyr_01', 'gyr_02', 'gyr_03',
+                         'mag_01', 'mag_02', 'mag_03']
+
+        self.col_names = col_names + [item for sublist in [[dat+'_'+loc for dat in IMU_data] for loc in IMU_locations] for item in sublist]
+
+        self.read_data()
+        
+    def read_data(self):
+        print("load the data ", self.root_path, " " , self.data_name)
+        train_x, train_y, test_x, test_y = self.load_the_data(root_path     = self.root_path, 
+                                                              data_name     = self.data_name, 
+                                                              norm_type     = self.datanorm_type,
+                                                              difference    = self.difference)
+        
+
+
+        if self.flag == "train":
+
+            self.data_x = train_x.reset_index(drop=True).copy()
+            self.data_y = train_y.reset_index(drop=True).copy()
+            self.get_the_sliding_index(train_x.copy(),train_y.copy())
+            print("The number of training data is : ", len(self.sliding_index.keys()))
+        else:
+
+            self.data_x  = test_x.reset_index(drop=True).copy()
+            self.data_y  = test_y.reset_index(drop=True).copy()
+            self.get_the_sliding_index(test_x.copy(), test_y.copy())
+            print("The number of test data is : ", len(self.sliding_index.keys()))
+
+        self.nb_classes = len(np.unique(np.concatenate((train_y, test_y), axis=0)))
+        print("The number of classes is : ", self.nb_classes)
+        self.input_length = self.data_x.iloc[self.sliding_index[0][0]:self.sliding_index[0][1],:].shape[0]
+        self.channel_in = self.data_x.iloc[self.sliding_index[0][0]:self.sliding_index[0][1],:].shape[1]
+        if self.flag == "train":
+            print("The input_length  is : ", self.input_length)
+            print("The channel_in is : ", self.channel_in)
+        
+    def load_the_data(self, root_path, data_name, norm_type, difference):
+        file_list = os.listdir(root_path)
+        
+        df_dict = {}
+        for file in file_list:
+            sub_data = pd.read_table(os.path.join(root_path,file), header=None, sep='\s+')
+            sub_data =sub_data.iloc[:,self.used_cols]
+            sub_data.columns = self.col_names
+            drop_index = list(sub_data.index[(sub_data['activity_id'].isin([0,9,10,11,18,19,20]))])
+            sub_data = sub_data.drop(drop_index)
+            sub_data['sub_id'] =int(file[9])
+            df_dict[file.split(".")[0]] = sub_data   
+
+        train_df = pd.DataFrame()
+        for key in self.train_keys:
+            train_df = pd.concat([train_df,df_dict[key]])
+
+        test_df = pd.DataFrame()
+        for key in self.test_keys:
+            test_df = pd.concat([test_df,df_dict[key]])
+        
+        train_df = train_df.set_index('sub_id')
+        train_x = train_df.iloc[:,1:]
+        train_y = train_df.iloc[:,0]
+
+        test_df = test_df.set_index('sub_id')
+        test_x = test_df.iloc[:,1:]
+        test_y = test_df.iloc[:,0]     
+        
+
+        if difference:
+            columns = ["diff_"+i for i in train_x.columns]
+
+            grouped_train_x = train_x.groupby(by=train_x.index)
+            diff_train_x = grouped_train_x.diff()
+            diff_train_x.columns = columns
+            diff_train_x.fillna(method ="backfill",inplace=True)
+
+            grouped_test_x = test_x.groupby(by=test_x.index)
+            diff_test_x = grouped_test_x.diff()
+            diff_test_x.columns = columns
+            diff_test_x.fillna(method ="backfill",inplace=True)
+
+            train_x = pd.concat([train_x,diff_train_x], axis=1)
+            test_x  = pd.concat([test_x, diff_test_x],  axis=1)
+
+
+        if norm_type:
+            normalizer = Normalizer(norm_type)
+            normalizer.fit(train_x)
+            train_x = normalizer.normalize(train_x)
+            test_x  = normalizer.normalize(test_x)
+            
+        return train_x, train_y, test_x, test_y
+    
+    def get_the_sliding_index(self, data_x, data_y):
+        data_x = data_x.reset_index()
+        data_y = data_y.reset_index()
+        data_x["activity_id"] = data_y["activity_id"]
+        data_x['act_block'] = ((data_x['activity_id'].shift(1) != data_x['activity_id']) | (data_x['sub_id'].shift(1) != data_x['sub_id'])).astype(int).cumsum()
+
+        freq         = 100
+        windowsize   = int(5.12 * freq)
+        displacement = 1*freq
+        drop_long    = 7.5
+        train_window = {}
+        id_          = 0
+
+        drop_index = []
+        numblocks = data_x['act_block'].max()
+        for block in range(1, numblocks+1):
+            drop_index += list(data_x[data_x['act_block']==block].head(int(drop_long * freq)).index)
+            drop_index += list(data_x[data_x['act_block']==block].tail(int(drop_long * freq)).index)
+        dropped_data_x = data_x.drop(drop_index)
+
+        for index in dropped_data_x.act_block.unique():
+            temp_df = dropped_data_x[dropped_data_x["act_block"]==index]
+
+            start = temp_df.index[0]
+            end   = start+windowsize
+
+            while end < temp_df.index[-1]:
+                train_window[id_]=[start, end]
+                id_ = id_ + 1
+                start = start + displacement
+                end   = start + windowsize
+        self.sliding_index = train_window
+
+        
+    def __getitem__(self, index):
+        start, end = self.sliding_index[index]
+        sample_x = self.data_x.iloc[start:end,:].values
+        sample_y = stats.mode(self.data_y.iloc[start:end]).mode[0]
+        return sample_x, sample_y
+
+    def __len__(self):
+        return len(self.sliding_index.keys())
 # ================================================
 
 data_loader_dict = {"uci_har"   : UCI_HAR_DATA,
                     "ucr_uni"   : UCR_TSC_DATA_UNIVARIATE,
-                    "ucr_multi" : UCR_TSC_DATA_MULTIVARIATE}
+                    "ucr_multi" : UCR_TSC_DATA_MULTIVARIATE,
+                    "pamap2"    : PAMAP2_HAR_DATA}
 
 plot_dict = {"uci_har"    : plot_the_uci_har_data_set,
              "ucr_uni"    : plot_the_ucr_uni_data_set,
