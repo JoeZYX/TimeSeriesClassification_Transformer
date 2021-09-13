@@ -568,7 +568,8 @@ class PAMAP2_HAR_DATA(Dataset):
             sub_data.columns = self.col_names
             drop_index = list(sub_data.index[(sub_data['activity_id'].isin([0,9,10,11,18,19,20]))])
             sub_data = sub_data.drop(drop_index)
-            sub_data.fillna(method ="backfill",inplace=True)
+            #sub_data.fillna(method ="backfill",inplace=True)  拿到了97，1的成绩
+            sub_data = sub_data.interpolate(method='linear', limit_direction='both')
             sub_data['sub_id'] =int(file[9])
             df_dict[file.split(".")[0]] = sub_data   
 
@@ -683,12 +684,217 @@ class PAMAP2_HAR_DATA(Dataset):
 
     def __len__(self):
         return len(self.sliding_index.keys())
+
+
+
+
+# ========================================       Opportunity HAR UCI                =============================
+class Opportunity_UCI_Data(Dataset):
+
+    def __init__(self, args, flag="train"):
+
+        self.root_path    = args.root_path
+        self.data_name    = "Opportunity"
+        self.difference   = args.difference
+        self.augmentation = args.augmentation
+        self.datanorm_type= args.datanorm_type
+        self.flag         = flag
+
+        self.used_cols = [1,  2,   3, # Accelerometer RKN^ 
+                          4,  5,   6, # Accelerometer HIP
+                          7,  8,   9, # Accelerometer LUA^ 
+                          10, 11,  12, # Accelerometer RUA_
+                          13, 14,  15, # Accelerometer LH
+                          16, 17,  18, # Accelerometer BACK
+                          19, 20,  21, # Accelerometer RKN_ 
+                          22, 23,  24, # Accelerometer RWR
+                          25, 26,  27, # Accelerometer RUA^
+                          28, 29,  30, # Accelerometer LUA_ 
+                          31, 32,  33, # Accelerometer LWR
+                          34, 35,  36, # Accelerometer RH
+                          37, 38,  39, 40, 41, 42, 43, 44, 45, # InertialMeasurementUnit BACK
+                          50, 51,  52, 53, 54, 55, 56, 57, 58, # InertialMeasurementUnit RUA
+                          63, 64,  65, 66, 67, 68, 69, 70, 71, # InertialMeasurementUnit RLA 
+                          76, 77,  78, 79, 80, 81, 82, 83, 84, # InertialMeasurementUnit LUA
+                          89, 90,  91, 92, 93, 94, 95, 96, 97,  # InertialMeasurementUnit LLA
+                          102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, # InertialMeasurementUnit L-SHOE
+                          118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, # InertialMeasurementUnit R-SHOE
+                          249  # Label
+                         ]
+        self.train_keys   = ['S1-ADL1.dat', 'S1-ADL2.dat', 'S1-ADL3.dat', 'S1-ADL4.dat', 
+                             'S1-ADL5.dat', 'S1-Drill.dat', # subject 1
+                             
+                             'S2-ADL1.dat', 'S2-ADL2.dat', 'S2-ADL3.dat', 'S2-Drill.dat', # subject 2
+                             
+                             'S3-ADL1.dat', 'S3-ADL2.dat', 'S3-ADL3.dat', 'S3-Drill.dat', # subject 3
+                             
+                             'S4-ADL1.dat', 'S4-ADL2.dat', 'S4-ADL3.dat', 'S4-ADL4.dat',
+                             'S4-ADL5.dat', 'S4-Drill.dat'] # subject 4
+
+        self.test_keys    = ['S2-ADL4.dat', 'S2-ADL5.dat','S3-ADL4.dat', 'S3-ADL5.dat']
+        
+        
+        col_names         = ["dim_{}".format(i) for i in range(len(self.used_cols)-1)]
+        self.col_names    =  col_names + ["activity_id"]
+        
+        self.label_map = [(0,      'Other'),
+                          (406516, 'Open Door 1'),
+                          (406517, 'Open Door 2'),
+                          (404516, 'Close Door 1'),
+                          (404517, 'Close Door 2'),
+                          (406520, 'Open Fridge'),
+                          (404520, 'Close Fridge'),
+                          (406505, 'Open Dishwasher'),
+                          (404505, 'Close Dishwasher'),
+                          (406519, 'Open Drawer 1'),
+                          (404519, 'Close Drawer 1'),
+                          (406511, 'Open Drawer 2'),
+                          (404511, 'Close Drawer 2'),
+                          (406508, 'Open Drawer 3'),
+                          (404508, 'Close Drawer 3'),
+                          (408512, 'Clean Table'),
+                          (407521, 'Drink from Cup'),
+                          (405506, 'Toggle Switch')]
+        self.labelToId = {int(x[0]): i for i, x in enumerate(self.label_map)}
+        
+        self.read_data()
+
+
+    def read_data(self):
+        print("load the data ", self.root_path, " " , self.data_name)
+        train_x, train_y, test_x, test_y = self.load_the_data(root_path     = self.root_path, 
+                                                              data_name     = self.data_name, 
+                                                              norm_type     = self.datanorm_type,
+                                                              difference    = self.difference)
+
+
+        # 这里index都是sub——id
+        if self.flag == "train":
+
+            self.data_x = train_x.reset_index(drop=True).copy()
+            self.data_y = train_y.reset_index(drop=True).copy()
+            self.get_the_sliding_index(train_x.copy(),train_y.copy())
+            print("The number of training data is : ", len(self.sliding_index.keys()))
+        else:
+
+            self.data_x  = test_x.reset_index(drop=True).copy()
+            self.data_y  = test_y.reset_index(drop=True).copy()
+            self.get_the_sliding_index(test_x.copy(), test_y.copy())
+            print("The number of test data is : ", len(self.sliding_index.keys()))
+
+        self.nb_classes = len(np.unique(np.concatenate((train_y, test_y), axis=0)))
+        print("The number of classes is : ", self.nb_classes)
+        self.input_length = self.data_x.iloc[self.sliding_index[0][0]:self.sliding_index[0][1],:].shape[0]
+        self.channel_in = self.data_x.iloc[self.sliding_index[0][0]:self.sliding_index[0][1],:].shape[1]
+        if self.flag == "train":
+            print("The input_length  is : ", self.input_length)
+            print("The channel_in is : ", self.channel_in)
+    
+    def load_the_data(self, root_path, data_name, norm_type, difference):
+        file_list = os.listdir(root_path)
+        file_list = [file for file in file_list if file[-3:]=="dat"]
+        df_dict = {}
+
+        for index,file in enumerate(file_list):
+            sub_data = pd.read_table(os.path.join(root_path,file), header=None, sep='\s+')
+            sub_data =sub_data.iloc[:,self.used_cols]
+            sub_data.columns = self.col_names
+            # 检查过了 label那一列 有18个, 且没有缺失
+            sub_data = sub_data.interpolate(method='linear', limit_direction='both')
+            sub_data["activity_id"] = sub_data["activity_id"].map(self.labelToId)
+            sub_data['sub_id'] =int(index)
+            df_dict[file] = sub_data
+            
+        train_df = pd.DataFrame()
+        for key in self.train_keys:
+            train_df = pd.concat([train_df,df_dict[key]])
+
+        test_df = pd.DataFrame()
+        for key in self.test_keys:
+            test_df = pd.concat([test_df,df_dict[key]])
+        
+        train_df = train_df.set_index('sub_id')
+        train_x = train_df.iloc[:,:-1]
+        train_y = train_df.iloc[:,-1]
+
+        test_df = test_df.set_index('sub_id')
+        test_x = test_df.iloc[:,:-1]
+        test_y = test_df.iloc[:,-1]  
+
+        if difference:
+            columns = ["diff_"+i for i in train_x.columns]
+
+            grouped_train_x = train_x.groupby(by=train_x.index)
+            diff_train_x = grouped_train_x.diff()
+            diff_train_x.columns = columns
+            diff_train_x.fillna(method ="backfill",inplace=True)
+
+            grouped_test_x = test_x.groupby(by=test_x.index)
+            diff_test_x = grouped_test_x.diff()
+            diff_test_x.columns = columns
+            diff_test_x.fillna(method ="backfill",inplace=True)
+
+            train_x = pd.concat([train_x,diff_train_x], axis=1)
+            test_x  = pd.concat([test_x, diff_test_x],  axis=1)
+
+
+        if norm_type:
+            normalizer = Normalizer(norm_type)
+            normalizer.fit(train_x)
+            train_x = normalizer.normalize(train_x)
+            test_x  = normalizer.normalize(test_x)
+            
+        return train_x, train_y, test_x, test_y
+
+    def get_the_sliding_index(self, data_x, data_y):
+        data_x = data_x.reset_index()
+        data_y = data_y.reset_index()
+        data_x["activity_id"] = data_y["activity_id"]
+        data_x['act_block'] = ((data_x['activity_id'].shift(1) != data_x['activity_id']) | (data_x['sub_id'].shift(1) != data_x['sub_id'])).astype(int).cumsum()
+
+        # TODO 设置windowsize 以及 sliding step
+        freq         = 30
+        windowsize   = int(2 * freq)
+        displacement = int(0.5*freq)
+        drop_long    = 1
+        train_window = {}
+        id_          = 0
+
+        drop_index = []
+        numblocks = data_x['act_block'].max()
+        for block in range(1, numblocks+1):
+            drop_index += list(data_x[data_x['act_block']==block].head(int(drop_long * freq)).index)
+            drop_index += list(data_x[data_x['act_block']==block].tail(int(drop_long * freq)).index)
+        dropped_data_x = data_x.drop(drop_index)
+
+        for index in dropped_data_x.act_block.unique():
+            temp_df = dropped_data_x[dropped_data_x["act_block"]==index]
+
+            start = temp_df.index[0]
+            end   = start+windowsize
+
+            while end < temp_df.index[-1]:
+                train_window[id_]=[start, end]
+                id_ = id_ + 1
+                start = start + displacement
+                end   = start + windowsize
+        self.sliding_index = train_window
+
+    def __getitem__(self, index):
+        start, end = self.sliding_index[index]
+        sample_x = self.data_x.iloc[start:end,:].values
+        sample_y = stats.mode(self.data_y.iloc[start:end]).mode[0]
+        return sample_x, sample_y
+
+    def __len__(self):
+        return len(self.sliding_index.keys())
 # ================================================
 
 data_loader_dict = {"uci_har"   : UCI_HAR_DATA,
                     "ucr_uni"   : UCR_TSC_DATA_UNIVARIATE,
                     "ucr_multi" : UCR_TSC_DATA_MULTIVARIATE,
-                    "pamap2"    : PAMAP2_HAR_DATA}
+                    "pamap2"    : PAMAP2_HAR_DATA,
+                    "opport"    : Opportunity_UCI_Data}
 
 plot_dict = {"uci_har"    : plot_the_uci_har_data_set,
              "ucr_uni"    : plot_the_ucr_uni_data_set,
