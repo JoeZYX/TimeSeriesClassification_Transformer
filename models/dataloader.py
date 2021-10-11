@@ -854,7 +854,7 @@ class Opportunity_UCI_Data(Dataset):
 
         # TODO 设置windowsize 以及 sliding step
         freq         = 30
-        windowsize   = int(2 * freq)
+        windowsize   = int(1 * freq)
         displacement = int(0.5*freq)
         drop_long    = 1
         train_window = {}
