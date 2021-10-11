@@ -9,6 +9,7 @@ import time
 from models.dataloader import data_loader_dict
 from models.model import TSCtransformer,TSTransformer_Basic
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import f1_score
 
 
 #Data_Loader_Dict = {"ucr_univariante" : UCR_TSC_DATA_UNIVARIATE}
@@ -200,10 +201,10 @@ class Exp(object):
 
             print("Epoch: {} cost time: {}".format(epoch+1, time.time()-epoch_time))
             train_loss = np.average(train_loss)
-            vali_loss , vali_acc = self.validation(test_loader, criterion)
-            _ , train_acc = self.validation(train_loader, criterion)
-            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Train Accuracy {3:.7f} Vali Loss: {4:.7f} Vali Accuracy: {5:.7f}".format(
-                epoch + 1, train_steps, train_loss, train_acc, vali_loss, vali_acc))
+            vali_loss , vali_acc, vali_f_w,  vali_f_m = self.validation(test_loader, criterion)
+            _         , train_acc,       _,         _ = self.validation(train_loader, criterion)
+            print("Epoch: {0}, Steps: {1} | Train Loss: {2:.7f} Train Accuracy {3:.7f} Vali Loss: {4:.7f} Vali Accuracy: {5:.7f}  Vali weighted F1: {6:.7f}  Vali macro F1 {7:.7f}".format(
+                epoch + 1, train_steps, train_loss, train_acc, vali_loss, vali_acc, vali_f_w, vali_f_m))
 
             early_stopping(vali_loss, self.model, path)
             if early_stopping.early_stop:
@@ -242,7 +243,10 @@ class Exp(object):
             trues.extend(list(batch_y.detach().cpu().numpy()))            
         total_loss = np.average(total_loss)
         acc = accuracy_score(preds,trues)
+        f_w = f1_score(trues, preds, average='weighted')
+        f_m = f1_score(trues, preds, average='macro')
+
         self.model.train()
-        return total_loss,  acc
+        return total_loss,  acc, f_w,  f_m
 
 
