@@ -71,7 +71,7 @@ class Forward_block(nn.Module):
                                          c_out        = c_out,
                                          kernel_size  = kernel_size,
                                          stride       =  stride,
-                                         bias         = bias, 
+                                         bias         = conv_bias, 
                                          padding_mode = padding_mode)
         else:
             self.conv = nn.Conv1d(in_channels  =  c_in, 
