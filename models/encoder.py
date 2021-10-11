@@ -91,8 +91,8 @@ class EncoderLayer(nn.Module):
         #self.ffd_dropout1 = nn.Dropout(feedforward_dropout)
 
         if light_weight:
-            self.ffd_conv2 = DW_PW_projection(c_in         = d_model, 
-                                              c_out        = self.dim_feedforward,
+            self.ffd_conv2 = DW_PW_projection(c_in         = self.dim_feedforward, 
+                                              c_out        = d_model,
                                               kernel_size  = self.forward_kernel_size,
                                               bias         = bias, 
                                               padding_mode = padding_mode)

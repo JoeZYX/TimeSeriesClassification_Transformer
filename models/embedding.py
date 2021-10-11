@@ -117,7 +117,8 @@ class TokenEmbedding(nn.Module):
                  pooling_kernel_size    = 3, 
                  pooling_stride         = 2,
                  pooling_padding        = 1,
-                 padding_mode           = 'replicate'):
+                 padding_mode           = 'replicate',
+                 light_weight           = False):
         """
         c_in  : 模型输入的维度
         token_d_model ： embedding的维度  TODO看看后面是需要被相加还是被cat
@@ -143,7 +144,8 @@ class TokenEmbedding(nn.Module):
                                                   pooling_kernel_size = pooling_kernel_size, 
                                                   pooling_stride      = pooling_stride,
                                                   pooling_padding     = pooling_padding,
-                                                  padding_mode        = padding_mode))
+                                                  padding_mode        = padding_mode,
+                                                  light_weight        = light_weight))
 
         self.conv_layers = nn.ModuleList(self.conv_layers)
 

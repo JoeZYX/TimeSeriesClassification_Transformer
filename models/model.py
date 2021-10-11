@@ -29,7 +29,8 @@ class TSCtransformer(nn.Module):
                                                   pooling_kernel_size  = args.token_pool_kernel_size, 
                                                   pooling_stride       = args.token_pool_stride,
                                                   pooling_padding      = args.token_pool_pad,
-                                                  padding_mode         = args.padding_mode)
+                                                  padding_mode         = args.padding_mode,
+                                                  light_weight         = args.light_weight)
 
 
             sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
