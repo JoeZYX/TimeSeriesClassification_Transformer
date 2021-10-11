@@ -18,6 +18,35 @@ activation_dict = {"relu"         : nn.ReLU,
 Norm_dict = {"layer" : nn.LayerNorm,
              "batch" : nn.BatchNorm1d}
 
+
+class DW_PW_projection(nn.Module):
+    def __init__(self, c_in, c_out, kernel_size, stride=1, bias = False, padding_mode = "replicate"):
+        super(DW_PW_projection, self).__init__()
+
+        self.dw_conv1d = nn.Conv1d(in_channels  = c_in,
+                                   out_channels = c_in,
+                                   kernel_size  = kernel_size,
+                                   padding      = int(kernel_size/2),
+                                   groups       = c_in,
+                                   stride       = stride,
+                                   bias         = bias,  
+                                   padding_mode = padding_mode)
+
+        self.pw_conv1d = nn.Conv1d(in_channels  = c_in,
+                                   out_channels = c_out,
+                                   kernel_size  = 1,
+                                   padding      = 0,
+                                   groups       = 1,
+                                   bias         = bias,  
+                                   padding_mode = padding_mode)
+    def forward(self, x):
+
+
+        x  = self.dw_conv1d(x)
+        x  = self.pw_conv1d(x)
+
+        return x
+
 class Forward_block(nn.Module):
     def __init__(self,
                  c_in,
@@ -31,18 +60,27 @@ class Forward_block(nn.Module):
                  pooling_kernel_size    = 3, 
                  pooling_stride         = 2,
                  pooling_padding        = 1,
-                 padding_mode           = 'replicate'):
+                 padding_mode           = 'replicate',
+                 light_weight           = False):
         """
         embedding的block 由 conv --> norm --> activation --> maxpooling组成
         """
         super(Forward_block, self).__init__() 
-        self.conv = nn.Conv1d(in_channels  =  c_in, 
-                              out_channels =  c_out,
-                              kernel_size  =  kernel_size,
-                              padding      =  int(kernel_size/2),
-                              stride       =  stride,
-                              bias         =  conv_bias,
-                              padding_mode =  padding_mode)
+        if light_weight:
+            self.conv = DW_PW_projection(c_in         = c_in, 
+                                         c_out        = c_out,
+                                         kernel_size  = kernel_size,
+                                         stride       =  stride,
+                                         bias         = bias, 
+                                         padding_mode = padding_mode)
+        else:
+            self.conv = nn.Conv1d(in_channels  =  c_in, 
+                                  out_channels =  c_out,
+                                  kernel_size  =  kernel_size,
+                                  padding      =  int(kernel_size/2),
+                                  stride       =  stride,
+                                  bias         =  conv_bias,
+                                  padding_mode =  padding_mode)
         self.norm_type   = norm_type
         self.norm        = Norm_dict[norm_type](c_out)
         self.activation  = activation_dict[activation]()

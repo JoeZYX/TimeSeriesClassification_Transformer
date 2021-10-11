@@ -11,6 +11,35 @@ import torch.nn.functional as F
 import random
 from math import sqrt
 
+Norm_dict = {"layer" : nn.LayerNorm,
+             "batch" : nn.BatchNorm1d}
+
+class DW_PW_projection(nn.Module):
+    def __init__(self, c_in, c_out, kernel_size, bias = False, padding_mode = "replicate"):
+        super(DW_PW_projection, self).__init__()
+
+        self.dw_conv1d = nn.Conv1d(in_channels  = c_in,
+                                   out_channels = c_in,
+                                   kernel_size  = kernel_size,
+                                   padding      = int(kernel_size/2),
+                                   groups       = c_in,
+                                   bias         = bias,  
+                                   padding_mode = padding_mode)
+
+        self.pw_conv1d = nn.Conv1d(in_channels  = c_in,
+                                   out_channels = c_out,
+                                   kernel_size  = 1,
+                                   padding      = 0,
+                                   groups       = 1,
+                                   bias         = bias,  
+                                   padding_mode = padding_mode)
+    def forward(self, x):
+
+
+        x  = self.dw_conv1d(x)
+        x  = self.pw_conv1d(x)
+
+        return x
 
 ####################             Mask                   #########################################
 
@@ -174,7 +203,8 @@ class AttentionLayer(nn.Module):
                  value_kernel_size    =  1,
                  bias                 = False,
                  padding_mode         = 'replicate',
-                 projection_dropout   =  0.1):
+                 projection_dropout   =  0.1,
+                 light_weight         = False):
         """
 
         attention          :    要进行什么样子的attention？Probmask？seasonal？还是全局的？ 默认就是full吧
@@ -200,37 +230,64 @@ class AttentionLayer(nn.Module):
         self.projection_dropout = projection_dropout
 
         # 初始化4个projection，分别时key，query， value以及最后新value的out的projection
-        self.query_projection = nn.Conv1d(in_channels  = input_dim,
-                                          out_channels = self.d_keys, 
-                                          kernel_size  = self.causal_kernel_size,
-                                          padding      =  int(self.causal_kernel_size/2),
-                                          bias         =  bias,  
-                                          padding_mode = padding_mode)
+        if light_weight:
+            self.query_projection = DW_PW_projection(c_in         = input_dim, 
+                                                     c_out        = self.d_keys, 
+                                                     kernel_size  = self.causal_kernel_size,
+                                                     bias         = bias, 
+                                                     padding_mode = padding_mode)
+        else:
+            self.query_projection = nn.Conv1d(in_channels  = input_dim,
+                                              out_channels = self.d_keys, 
+                                              kernel_size  = self.causal_kernel_size,
+                                              padding      =  int(self.causal_kernel_size/2),
+                                              bias         =  bias,  
+                                              padding_mode = padding_mode)
 
+        if light_weight:
+            self.key_projection = DW_PW_projection(c_in         = input_dim, 
+                                                   c_out        = self.d_keys, 
+                                                   kernel_size  = self.causal_kernel_size,
+                                                   bias         = bias, 
+                                                   padding_mode = padding_mode)
+        else:
+            self.key_projection = nn.Conv1d(in_channels  = input_dim,
+                                            out_channels = self.d_keys, 
+                                            kernel_size  = self.causal_kernel_size,
+                                            padding      =  int(self.causal_kernel_size/2),
+                                            bias         =  bias,  
+                                            padding_mode = padding_mode)
 
-        self.key_projection = nn.Conv1d(in_channels  = input_dim,
-                                        out_channels = self.d_keys, 
-                                        kernel_size  = self.causal_kernel_size,
-                                        padding      =  int(self.causal_kernel_size/2),
-                                        bias         =  bias,  
-                                        padding_mode = padding_mode)
-
-
-        self.value_projection = nn.Conv1d(in_channels  = input_dim,
-                                          out_channels = self.d_values , 
-                                          kernel_size  = self.value_kernel_size,
-                                          padding      =  int(self.value_kernel_size/2),
-                                          bias         =  bias,  
-                                          padding_mode = padding_mode)
+        if light_weight:
+            self.value_projection = DW_PW_projection(c_in         = input_dim, 
+                                                     c_out        = self.d_values, 
+                                                     kernel_size  = self.value_kernel_size,
+                                                     bias         = bias, 
+                                                     padding_mode = padding_mode)
+        else:
+            self.value_projection = nn.Conv1d(in_channels  = input_dim,
+                                              out_channels = self.d_values , 
+                                              kernel_size  = self.value_kernel_size,
+                                              padding      =  int(self.value_kernel_size/2),
+                                              bias         =  bias,  
+                                              padding_mode = padding_mode)
 										  
         self.inner_attention = attention
 
-        self.out_projection = nn.Conv1d(in_channels  = self.d_values ,                                  # 与前三个projection的输入维度不一样，因为这里的输入时attention后的新value
-                                        out_channels = d_model,                                        # 由于有skip的机制，所以整个attention的输入和输出要保持一直
-                                        kernel_size  = self.value_kernel_size,
-                                        padding      = int(self.value_kernel_size/2),
-                                        bias         = bias,  
-                                        padding_mode = padding_mode)
+
+        if light_weight:
+            self.out_projection = DW_PW_projection(c_in         = self.d_values, 
+                                                   c_out        = d_model, 
+                                                   kernel_size  = self.value_kernel_size,
+                                                   bias         = bias, 
+                                                   padding_mode = padding_mode)
+        else:
+            self.out_projection = nn.Conv1d(in_channels  = self.d_values ,                                  # 与前三个projection的输入维度不一样，因为这里的输入时attention后的新value
+                                            out_channels = d_model,                                        # 由于有skip的机制，所以整个attention的输入和输出要保持一直
+                                            kernel_size  = self.value_kernel_size,
+                                            padding      = int(self.value_kernel_size/2),
+                                            bias         = bias,  
+                                            padding_mode = padding_mode)
         self.proj_drop = nn.Dropout(projection_dropout)
 
         #for m in self.modules():

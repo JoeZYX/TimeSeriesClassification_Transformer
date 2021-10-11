@@ -14,6 +14,36 @@ Activation_dict = {"relu"         : nn.ReLU,
                    "gelu"         : nn.GELU,
                    "hardswish"    : nn.Hardswish,
                    "mish"         : nn.Mish}
+
+
+class DW_PW_projection(nn.Module):
+    def __init__(self, c_in, c_out, kernel_size, bias = False, padding_mode = "replicate"):
+        super(DW_PW_projection, self).__init__()
+
+        self.dw_conv1d = nn.Conv1d(in_channels  = c_in,
+                                   out_channels = c_in,
+                                   kernel_size  = kernel_size,
+                                   padding      = int(kernel_size/2),
+                                   groups       = c_in,
+                                   bias         = bias,  
+                                   padding_mode = padding_mode)
+
+        self.pw_conv1d = nn.Conv1d(in_channels  = c_in,
+                                   out_channels = c_out,
+                                   kernel_size  = 1,
+                                   padding      = 0,
+                                   groups       = 1,
+                                   bias         = bias,  
+                                   padding_mode = padding_mode)
+    def forward(self, x):
+
+
+        x  = self.dw_conv1d(x)
+        x  = self.pw_conv1d(x)
+
+        return x
+
+
 class EncoderLayer(nn.Module):
 
 
@@ -26,7 +56,8 @@ class EncoderLayer(nn.Module):
                  norm_type             = "layer",
                  forward_kernel_size   = 1,
                  bias                  = False,
-                 padding_mode          = "replicate"):
+                 padding_mode          = "replicate",
+                 light_weight          = False):
 
         super(EncoderLayer, self).__init__()
 		
@@ -42,22 +73,36 @@ class EncoderLayer(nn.Module):
         self.dim_feedforward = dim_feedforward or 2*d_model
         self.forward_kernel_size = forward_kernel_size
 
-        self.ffd_conv1 = nn.Conv1d(in_channels  = d_model, 
-                                   out_channels = self.dim_feedforward, 
-                                   kernel_size  = self.forward_kernel_size,
-                                   padding      =  int(self.forward_kernel_size/2),
-                                   bias         =  bias,  
-                                   padding_mode = padding_mode)
+        if light_weight:
+            self.ffd_conv1 = DW_PW_projection(c_in         = d_model, 
+                                              c_out        = self.dim_feedforward,
+                                              kernel_size  = self.forward_kernel_size,
+                                              bias         = bias, 
+                                              padding_mode = padding_mode)
+        else:
+            self.ffd_conv1 = nn.Conv1d(in_channels  = d_model, 
+                                       out_channels = self.dim_feedforward, 
+                                       kernel_size  = self.forward_kernel_size,
+                                       padding      =  int(self.forward_kernel_size/2),
+                                       bias         =  bias,  
+                                       padding_mode = padding_mode)
 								   
         self.ffd_activation = Activation_dict[activation]()
         #self.ffd_dropout1 = nn.Dropout(feedforward_dropout)
 
-        self.ffd_conv2 = nn.Conv1d(in_channels   = self.dim_feedforward,
-                                   out_channels  = d_model, 
-                                   kernel_size   = self.forward_kernel_size,
-                                   padding       =  int(self.forward_kernel_size/2),
-                                   bias          =  bias,  
-                                   padding_mode  = padding_mode)
+        if light_weight:
+            self.ffd_conv2 = DW_PW_projection(c_in         = d_model, 
+                                              c_out        = self.dim_feedforward,
+                                              kernel_size  = self.forward_kernel_size,
+                                              bias         = bias, 
+                                              padding_mode = padding_mode)
+        else:
+            self.ffd_conv2 = nn.Conv1d(in_channels   = self.dim_feedforward,
+                                       out_channels  = d_model, 
+                                       kernel_size   = self.forward_kernel_size,
+                                       padding       =  int(self.forward_kernel_size/2),
+                                       bias          =  bias,  
+                                       padding_mode  = padding_mode)
 
         self.ffd_dropout2 = nn.Dropout(feedforward_dropout)
         self.ffd_norm = Norm_dict[norm_type](d_model)
@@ -104,7 +149,7 @@ class EncoderLayer(nn.Module):
 
 
 class ConvLayer(nn.Module):
-    def __init__(self, c_in, c_out, bias = False, padding_mode = "replicate", conv_norm = "batch", conv_activation = "relu"):
+    def __init__(self, c_in, c_out, bias = False, padding_mode = "replicate", conv_norm = "batch", conv_activation = "relu", light_weight=False):
         super(ConvLayer, self).__init__()
         """
         专门用来降低长度的convblock，默认kernel=3，
@@ -112,12 +157,19 @@ class ConvLayer(nn.Module):
         """
         self.norm_type = conv_norm
 
-        self.downConv = nn.Conv1d(in_channels  =  c_in,
-                                  out_channels =  c_out,
-                                  kernel_size  =  3 ,
-                                  padding      =  1,
-                                  bias         =  bias,  
-                                  padding_mode = padding_mode)
+        if light_weight:
+            self.downConv = DW_PW_projection(c_in         = c_in, 
+                                             c_out        = c_out,
+                                             kernel_size  = 3,
+                                             bias         = bias, 
+                                             padding_mode = padding_mode)
+        else:
+            self.downConv = nn.Conv1d(in_channels  =  c_in,
+                                      out_channels =  c_out,
+                                      kernel_size  =  3 ,
+                                      padding      =  1,
+                                      bias         =  bias,  
+                                      padding_mode = padding_mode)
 
         self.normConv = Norm_dict[conv_norm](c_out)
 

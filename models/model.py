@@ -71,7 +71,8 @@ class TSCtransformer(nn.Module):
                                                        value_kernel_size  = args.value_kernel_size,
                                                        bias               = args.bias,
                                                        padding_mode       = args.padding_mode,
-                                                       projection_dropout = args.projection_dropout))
+                                                       projection_dropout = args.projection_dropout,
+                                                       light_weight       = args.light_weight))
 
         attention_layer_list = nn.ModuleList(attention_layer_list)
 
@@ -84,14 +85,16 @@ class TSCtransformer(nn.Module):
                                              norm_type           = args.feedforward_norm_type,
                                              forward_kernel_size = args.forward_kernel_size,
                                              bias                = args.bias,
-                                             padding_mode        = args.padding_mode) for l in range(args.e_layers)],
+                                             padding_mode        = args.padding_mode,
+                                             light_weight        = args.light_weight) for l in range(args.e_layers)],
 
                                [ConvLayer( c_in            = args.token_d_model, 
                                            c_out           = args.token_d_model,
                                            bias            = args.bias,
                                            padding_mode    = args.padding_mode,
                                            conv_norm       = args.conv_norm, 
-                                           conv_activation = args.conv_activation ) for l in range(args.e_layers-1)] if args.distil else None
+                                           conv_activation = args.conv_activation,
+                                           light_weight        = args.light_weight) for l in range(args.e_layers-1)] if args.distil else None
                                )
         print("build encoder Done")
         # ================================ Prediction part ================================
