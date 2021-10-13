@@ -42,7 +42,7 @@ class TSCtransformer(nn.Module):
 
         if args.cls_token == True:
             sequence_length += 1
-            self.class_emb = nn.Parameter(torch.zeros(1, 1, self.token_d_model), requires_grad=True)
+            self.class_emb = nn.Parameter(torch.zeros(1, 1, args.token_d_model), requires_grad=True)
 
         if args.positional_embedding != 'none':
             if args.positional_embedding == 'learnable':
