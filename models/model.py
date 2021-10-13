@@ -40,6 +40,9 @@ class TSCtransformer(nn.Module):
             self.value_embedding = None
             sequence_length = args.input_length
 
+        if args.cls_token == True:
+            sequence_length += 1
+            self.class_emb = nn.Parameter(torch.zeros(1, 1, self.token_d_model), requires_grad=True)
 
         if args.positional_embedding != 'none':
             if args.positional_embedding == 'learnable':
@@ -100,7 +103,8 @@ class TSCtransformer(nn.Module):
         print("build encoder Done")
         # ================================ Prediction part ================================
         # Variante 1 --------------
-        self.attention_pool = nn.Linear(args.token_d_model, 1)
+        if args.cls_token == False:
+            self.attention_pool = nn.Linear(args.token_d_model, 1)
         self.classes_prediction = nn.Linear(args.token_d_model, args.num_classes)
 
 
@@ -129,15 +133,27 @@ class TSCtransformer(nn.Module):
 
 
     def forward(self, x):
+	
         if self.value_embedding is not None:
             x = self.value_embedding(x)
+
+        if self.args.cls_token:
+            cls_token = self.class_emb.expand(x.shape[0], -1, -1)
+            x = torch.cat((cls_token, x), dim=1)
+
         if self.pos_embedding is not None:
             x += self.pos_embedding
+
         x = self.input_embedding_dropout(x)
 
         x, attns = self.encoder(x)
+
         # Variante 1 --------------
-        x = torch.matmul(F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x).squeeze(-2)
+        if not self.args.cls_token:
+            x = torch.matmul(F.softmax(self.attention_pool(x), dim=1).transpose(-1, -2), x).squeeze(-2)
+        else:
+            x = x[:,0]
+
         x = self.classes_prediction(x)
 
         #print(x.shape)
@@ -149,6 +165,7 @@ class TSCtransformer(nn.Module):
 
 
         return x, attns
+
     @staticmethod
     def init_weight(m):
         if isinstance(m, nn.Linear):
