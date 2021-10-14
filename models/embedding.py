@@ -278,7 +278,7 @@ class Freq_TokenEmbedding(nn.Module):
         x =  torch.rand(1,c_in,freq,length).float()
         for layer in self.conv_layers:
             x = layer(x)
-        print("channel ," x.shape[2])
+        print("channel ,", x.shape[2])
         return x.shape[2]
 
 class PositionalEmbedding(nn.Module):
