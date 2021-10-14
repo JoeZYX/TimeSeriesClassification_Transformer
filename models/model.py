@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import numpy as np
-from models.embedding import TokenEmbedding
+from models.embedding import TokenEmbedding,Freq_TokenEmbedding
 from models.encoder import EncoderLayer, ConvLayer, Encoder
 from models.attention import AttentionLayer, MaskAttention
 
