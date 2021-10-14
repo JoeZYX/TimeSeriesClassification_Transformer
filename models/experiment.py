@@ -181,7 +181,7 @@ class Exp(object):
             self.model.train()
             epoch_time = time.time()
             for i, (batch_x,batch_y) in enumerate(train_loader):
-
+                print(i)
                 model_optim.zero_grad()
                 
                 batch_x = batch_x.double().to(self.device)

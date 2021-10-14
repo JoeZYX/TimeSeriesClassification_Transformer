@@ -233,7 +233,7 @@ class Freq_TokenEmbedding(nn.Module):
         """
         super(Freq_TokenEmbedding, self).__init__()
 
-        n_filter_list = [c_in] + [max(1,int(100/2**(i+1))) for i in range(n_conv_layers - 1)] + [1]
+        n_filter_list = [c_in] + [max(1,int(c_in/2**(i+1))) for i in range(n_conv_layers - 1)] + [1]
         print(n_filter_list)
         self.conv_layers = []
         for i in range(n_conv_layers):
