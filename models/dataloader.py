@@ -117,6 +117,9 @@ class UCI_HAR_DATA(Dataset):
             self.spec_list.append(scalogram)
             end = time.time()
             print("转换花了 ", end-start)
+            import pickle
+            with open('UCIHAR.pickle', 'wb') as handle:
+                pickle.dump(self.spec_list, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         self.nb_classes = len(np.unique(np.concatenate((train_y, test_y), axis=0)))
         print("The number of classes is : ", self.nb_classes)
