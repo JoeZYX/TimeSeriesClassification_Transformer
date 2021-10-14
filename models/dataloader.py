@@ -114,7 +114,7 @@ class UCI_HAR_DATA(Dataset):
                    coeffs, _ = pywt.cwt(sample_x[:,j], self.scales, wavelet = self.wavelet)
                    scalogram.append(coeffs)
                 scalogram = np.stack(scalogram)
-            self.spec_list.append(scalogram)
+			    self.spec_list.append(scalogram)
             end = time.time()
             print("转换花了 ", end-start)
             import pickle
