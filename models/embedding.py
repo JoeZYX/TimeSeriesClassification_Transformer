@@ -234,6 +234,7 @@ class Freq_TokenEmbedding(nn.Module):
         super(Freq_TokenEmbedding, self).__init__()
 
         n_filter_list = [c_in] + [max(1,int(100/2**(i+1))) for i in range(n_conv_layers - 1)] + [1]
+        print(n_filter_list)
         self.conv_layers = []
         for i in range(n_conv_layers):
             self.conv_layers.append(Freq_Forward_block(c_in           = n_filter_list[i], 
@@ -277,7 +278,7 @@ class Freq_TokenEmbedding(nn.Module):
         x =  torch.rand(1,c_in,freq,length).float()
         for layer in self.conv_layers:
             x = layer(x)
-
+        print("channel ," x.shape[2])
         return x.shape[2]
 
 class PositionalEmbedding(nn.Module):

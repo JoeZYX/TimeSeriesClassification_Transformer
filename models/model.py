@@ -16,7 +16,7 @@ class TSCtransformer(nn.Module):
         print("beginn to build model")
         # ================================ Embedding part ================================
         if self.args.token_n_layers > 0:
-            if self.args.embedding_type == "time":
+            if not self.args.spectrogram:
                 self.value_embedding = TokenEmbedding(c_in                 = args.c_in, 
                                                       token_d_model        = args.token_d_model,
                                                       kernel_size          = args.token_kernel_size, 
@@ -32,6 +32,8 @@ class TSCtransformer(nn.Module):
                                                       pooling_padding      = args.token_pool_pad,
                                                       padding_mode         = args.padding_mode,
                                                       light_weight         = args.light_weight)
+                sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
+                                                                       n_channels   =  args.c_in)
             else:
                 self.value_embedding = Freq_TokenEmbedding(c_in            = args.c_in,  
                                                            token_d_model   = args.token_d_model,
@@ -42,10 +44,7 @@ class TSCtransformer(nn.Module):
                                                            f_max           = args.f_max,
                                                            padding_mode    = args.padding_mode,
                                                            light_weight           = False)
-
-            sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
-                                                                   n_channels   =  args.c_in)
-
+                sequence_length = self.value_embedding.sequence_length(c_in = args.c_in, freq = int(args.f_max/2), length= args.input_length)
         else:
             self.value_embedding = None
             sequence_length = args.input_length
