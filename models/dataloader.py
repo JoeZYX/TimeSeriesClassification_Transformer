@@ -103,6 +103,20 @@ class UCI_HAR_DATA(Dataset):
             self.data_x  = test_x.copy()
             self.data_y  = test_y.copy()
 
+        if self.spectrogram:
+            import time
+            start = time.time()
+            self.spec_list = []
+            for i in self.data_x.index.unique():
+                sample_x = self.data_x.loc[i].values
+                scalogram = []
+                for j in range(sample_x.shape[1]):
+                   coeffs, _ = pywt.cwt(sample_x[:,j], self.scales, wavelet = self.wavelet)
+                   scalogram.append(coeffs)
+            scalogram = np.stack(scalogram)
+            self.spec_list.append(scalogram)
+            end = time.time()
+            print("转换花了 "，end-start )
 
         self.nb_classes = len(np.unique(np.concatenate((train_y, test_y), axis=0)))
         print("The number of classes is : ", self.nb_classes)
@@ -147,11 +161,12 @@ class UCI_HAR_DATA(Dataset):
         sample_y = self.data_y[index]
 
         if self.spectrogram:
-            scalogram = []
-            for i in range(sample_x.shape[1]):
-               coeffs, _ = pywt.cwt(sample_x[:,i], self.scales, wavelet = self.wavelet)
-               scalogram.append(coeffs)
-            sample_x = np.stack(scalogram)
+            #scalogram = []
+            #for i in range(sample_x.shape[1]):
+            #   coeffs, _ = pywt.cwt(sample_x[:,i], self.scales, wavelet = self.wavelet)
+            #   scalogram.append(coeffs)
+            #sample_x = np.stack(scalogram)
+            sample_x = self.spec_list[index]
         return sample_x, sample_y
 
     def __len__(self):

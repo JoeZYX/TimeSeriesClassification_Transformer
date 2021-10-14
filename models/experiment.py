@@ -179,7 +179,7 @@ class Exp(object):
             
             self.model.train()
             epoch_time = time.time()
-            temp = None
+            #temp = None
             for i, (batch_x,batch_y) in enumerate(train_loader):
                 start = time.time()
                 model_optim.zero_grad()
@@ -200,10 +200,10 @@ class Exp(object):
                 model_optim.step()
                 end = time.time()
 
-                print("without load : ", end - start)
-                if temp is not None:
-                    print("with load : ",end - temp)
-                temp = end
+                #print("without load : ", end - start)
+                #if temp is not None:
+                #    print("with load : ",end - temp)
+                #temp = end
 
             print("Epoch: {} cost time: {}".format(epoch+1, time.time()-epoch_time))
             train_loss = np.average(train_loss)
