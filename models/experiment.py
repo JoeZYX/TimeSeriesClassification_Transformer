@@ -10,7 +10,6 @@ from models.dataloader import data_loader_dict
 from models.model import TSCtransformer,TSTransformer_Basic
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
-from time import time
 
 #Data_Loader_Dict = {"ucr_univariante" : UCR_TSC_DATA_UNIVARIATE}
 
@@ -182,7 +181,7 @@ class Exp(object):
             epoch_time = time.time()
             temp = None
             for i, (batch_x,batch_y) in enumerate(train_loader):
-                start = time()
+                start = time.time()
                 model_optim.zero_grad()
                 
                 batch_x = batch_x.double().to(self.device)
@@ -199,11 +198,11 @@ class Exp(object):
 
                 loss.backward()
                 model_optim.step()
-                end = time()
+                end = time.time()
 
-                print(end - start)
+                print("without load : ", end - start)
                 if temp is not None:
-                    print(end - temp)
+                    print("with load : ",end - temp)
                 temp = end
 
             print("Epoch: {} cost time: {}".format(epoch+1, time.time()-epoch_time))
