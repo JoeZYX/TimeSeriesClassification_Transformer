@@ -11,6 +11,7 @@ import glob
 import re
 import csv
 from scipy.stats import stats
+import pywt
 class Normalizer(object):
     """
     Normalizes dataframe across ALL contained rows (time steps). Different from per-sample normalization.
@@ -76,6 +77,11 @@ class UCI_HAR_DATA(Dataset):
         self.difference   = args.difference
         self.augmentation = args.augmentation
         self.datanorm_type= args.datanorm_type
+
+        self.spectrogram  = args.spectrogram
+        self.scales       = np.arange(1, int(args.f_max/2)+1)
+        self.wavelet      = args.wavelet
+
         self.flag         = flag
         self.read_data()
 
@@ -139,6 +145,13 @@ class UCI_HAR_DATA(Dataset):
     def __getitem__(self, index):
         sample_x = self.data_x.loc[index].values
         sample_y = self.data_y[index]
+
+        if self.spectrogram:
+            scalogram = []
+            for i in range(sample_x.shape[1]):
+               coeffs, _ = pywt.cwt(sample_x[:,i], self.scales, wavelet = self.wavelet)
+               scalogram.append(coeffs)
+            sample_x = np.stack(scalogram)
         return sample_x, sample_y
 
     def __len__(self):

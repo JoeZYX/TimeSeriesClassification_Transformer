@@ -102,6 +102,53 @@ class Forward_block(nn.Module):
             x = self.maxpooling(x.permute(0, 2, 1)).permute(0, 2, 1)
         return x
 
+
+class Freq_Forward_block(nn.Module):
+    def __init__(self, 
+                 c_in, 
+                 c_out,  # 主要是把channel的dim压平
+                 kernel_size, 
+                 stride=1, 
+                 bias = False, 
+                 padding_mode = "replicate"):
+        
+        super(Freq_Forward_block, self).__init__()
+        
+        # depthwise
+        self.dw_conv = nn.Conv2d(in_channels  = c_in,
+                                 out_channels = c_in,
+                                 kernel_size  = [kernel_size,kernel_size],
+                                 padding      = [int(kernel_size/2),int(kernel_size/2)],
+                                 groups       = c_in,
+                                 stride       = [1,stride],  #缩短长度
+                                 bias         = bias,  
+                                 padding_mode = padding_mode)
+        self.batch_norm_1 = nn.BatchNorm2d(c_in)
+        self.act_1  = nn.ReLU()
+        # pointwise
+        self.pw_conv = nn.Conv2d(in_channels  = c_in,
+                                 out_channels = c_out,    # 压平
+                                 kernel_size  = 1,
+                                 padding      = 0,
+                                 stride       = 1,
+                                 bias         = bias,  
+                                 padding_mode = padding_mode)
+        self.batch_norm_2 = nn.BatchNorm2d(c_out)
+        self.act_2  = nn.ReLU()
+        
+    def forward(self, x):
+
+        x  = self.dw_conv(x)
+        x  = self.batch_norm_1(x)
+        x  = self.act_1(x)
+
+        x  = self.pw_conv(x)
+        x  = self.batch_norm_2(x)
+        x  = self.act_2(x)
+
+        return x
+
+
 class TokenEmbedding(nn.Module):
     def __init__(self,
                  c_in, 
@@ -165,6 +212,73 @@ class TokenEmbedding(nn.Module):
     def sequence_length(self, length=100, n_channels=3):
         return self.forward(torch.zeros((1, length,n_channels))).shape[1]
 
+
+
+class Freq_TokenEmbedding(nn.Module):
+    def __init__(self,
+                 c_in, 
+                 token_d_model,
+                 kernel_size            = 3, 
+                 stride                 = 1,  #横向方向缩短距离
+                 conv_bias              = False,
+                 n_conv_layers          = 1,
+                 f_max                  = 100,
+                 padding_mode           = 'replicate',
+                 light_weight           = False):
+        """
+        c_in  : 模型输入的维度
+        token_d_model ： embedding的维度  TODO看看后面是需要被相加还是被cat
+        kernel_size   : 每一层conv的kernel大小
+    
+        """
+        super(Freq_TokenEmbedding, self).__init__()
+
+        n_filter_list = [c_in] + [max(1,int(100/2**(i+1))) for i in range(n_conv_layers - 1)] + [1]
+        self.conv_layers = []
+        for i in range(n_conv_layers):
+            self.conv_layers.append(Freq_Forward_block(c_in           = n_filter_list[i], 
+                                                       c_out          = n_filter_list[i + 1],  # 主要是把channel的dim压平
+                                                       kernel_size    = kernel_size, 
+                                                       stride         = stride, 
+                                                       bias           = conv_bias,
+                                                       padding_mode   = padding_mode))
+
+        self.conv_layers = nn.ModuleList(self.conv_layers)
+
+        self.conv = nn.Conv1d(in_channels  =  self.channel(c_in = c_in, freq = int(f_max/2), length=100), 
+                              out_channels =  token_d_model,
+                              kernel_size  =  kernel_size,
+                              padding      =  int(kernel_size/2),
+                              stride       =  1,
+                              bias         =  conv_bias,
+                              padding_mode =  padding_mode)
+        self.norm        = nn.LayerNorm(token_d_model)
+        self.activation  = nn.ReLU()
+    def forward(self, x):
+
+
+        for layer in self.conv_layers:
+            x = layer(x)
+
+        x = torch.squeeze(x, 1)
+
+        x = self.conv(x) # B C L
+        x = self.activation(self.norm(x.permute(0, 2, 1)))
+
+        return x
+    
+    def sequence_length(self, c_in = 100, freq = 50, length=100):
+        x =  torch.rand(1,c_in,freq,length).float()
+        for layer in self.conv_layers:
+            x = layer(x)
+        return x.shape[3]
+
+    def channel(self, c_in = 100, freq = 50, length=100):
+        x =  torch.rand(1,c_in,freq,length).float()
+        for layer in self.conv_layers:
+            x = layer(x)
+
+        return x.shape[2]
 
 class PositionalEmbedding(nn.Module):
     """

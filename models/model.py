@@ -16,22 +16,32 @@ class TSCtransformer(nn.Module):
         print("beginn to build model")
         # ================================ Embedding part ================================
         if self.args.token_n_layers > 0:
-            self.value_embedding = TokenEmbedding(c_in                 = args.c_in, 
-                                                  token_d_model        = args.token_d_model,
-                                                  kernel_size          = args.token_kernel_size, 
-                                                  stride               = args.token_stride, 
-                                                  conv_bias            = args.token_conv_bias,
-                                                  activation           = args.token_activation,
-                                                  norm_type            = args.token_norm,
-                                                  n_conv_layers        = args.token_n_layers,
-                                                  in_planes            = args.token_in_planes,
-                                                  max_pool             = args.token_max_pool,
-                                                  pooling_kernel_size  = args.token_pool_kernel_size, 
-                                                  pooling_stride       = args.token_pool_stride,
-                                                  pooling_padding      = args.token_pool_pad,
-                                                  padding_mode         = args.padding_mode,
-                                                  light_weight         = args.light_weight)
-
+            if self.args.embedding_type == "time":
+                self.value_embedding = TokenEmbedding(c_in                 = args.c_in, 
+                                                      token_d_model        = args.token_d_model,
+                                                      kernel_size          = args.token_kernel_size, 
+                                                      stride               = args.token_stride, 
+                                                      conv_bias            = args.token_conv_bias,
+                                                      activation           = args.token_activation,
+                                                      norm_type            = args.token_norm,
+                                                      n_conv_layers        = args.token_n_layers,
+                                                      in_planes            = args.token_in_planes,
+                                                      max_pool             = args.token_max_pool,
+                                                      pooling_kernel_size  = args.token_pool_kernel_size, 
+                                                      pooling_stride       = args.token_pool_stride,
+                                                      pooling_padding      = args.token_pool_pad,
+                                                      padding_mode         = args.padding_mode,
+                                                      light_weight         = args.light_weight)
+            else:
+                self.value_embedding = Freq_TokenEmbedding(c_in            = args.c_in,  
+                                                           token_d_model   = args.token_d_model,
+                                                           kernel_size     = args.token_kernel_size, 
+                                                           stride          = args.token_stride,
+                                                           conv_bias       = args.token_conv_bias,
+                                                           n_conv_layers   = args.token_n_layers,
+                                                           f_max           = args.f_max,
+                                                           padding_mode    = args.padding_mode,
+                                                           light_weight           = False)
 
             sequence_length = self.value_embedding.sequence_length(length       =  args.input_length, 
                                                                    n_channels   =  args.c_in)
